@@ -1,0 +1,178 @@
+---
+title: 2GHJ3K Redfish Model Retros
+output: html_document
+params:
+  peelsobj: peelsobj
+  modelpath: modelpath
+  state: Nebraska
+  year: 2019
+  midwest: true
+---
+
+```{r include = FALSE}
+library(tidyverse)
+library(plotly)
+library(ggplot2)
+library(htmlwidgets)
+library(htmltools)
+library(colorspace)
+```
+
+```{r include = FALSE}
+peelsobj = params$peelsobj
+
+```
+
+## SSB
+
+```{r, echo = FALSE,message = FALSE, warning = FALSE, out.width="100%"}
+SSBm = get_mohns(peelsobj,"tot_ssb",details=TRUE)
+SSBe = SSBm$estimate
+SSBe$year = SSBm$data$year
+SSBeG = gather(SSBe,key = "peel",value="SSB",-year,na.rm=TRUE)
+SSBeG$year = as.numeric(as.character(SSBeG$year))
+SSBeGS = split(SSBeG,SSBeG$peel)
+colrs = colorspace::rainbow_hcl(length(SSBeGS))
+
+tit = plotly::TeX(paste0("\\text{Spawing Stock Biomass - Mohn's }\\rho:",round(SSBm$mohn$rho,3)))
+
+logSSB = extract_from_sdr(peelsobj[[1]]$ssdr,"log_tot_ssb",year=SSBeGS[[1]]$year,flatten=TRUE)
+logSSBCI = generate_CI(logSSB$log_tot_ssb.est,logSSB$log_tot_ssb.std,undotrans=exp)
+SSBeGS[[1]]$lower = logSSBCI$lower
+SSBeGS[[1]]$upper = logSSBCI$upper
+
+SSBp = basic_plot(SSBeGS[[1]]$year,SSBeGS[[1]]$SSB,SSBeGS[[1]]$lower,SSBeGS[[1]]$upper,plot_group="All Years",color=colrs[1],title= tit,xlab="Year",ylab="SSB")
+for(i in 2:length(SSBeGS)){
+    SSBp = basic_plot(SSBeGS[[i]]$year,SSBeGS[[i]]$SSB,NULL,NULL,plot_group=paste0("-",i-1," Years"),color=colrs[i],title= tit,xlab="Year",ylab="SSB",add=SSBp)
+}
+
+SSBp = SSBp |>
+    plotly::config(mathjax="cdn")
+
+SSBp
+```
+
+## Average F
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, out.width = "100%"}
+Fbarm = get_mohns(peelsobj,"Fbar",details=TRUE)
+
+Fbare = Fbarm$estimate
+Fbare$year = Fbarm$data$year
+FbareG = gather(Fbare,key = "peel",value="Fbar",-year,na.rm=TRUE)
+FbareG$year = as.numeric(as.character(FbareG$year))
+FbareGS = split(FbareG,FbareG$peel)
+colrs = colorspace::rainbow_hcl(length(FbareGS))
+
+tit = plotly::TeX(paste0("\\text{Average F - Mohn's }\\rho:",round(Fbarm$mohn$rho,3)))
+
+logFbar = extract_from_sdr(peelsobj[[1]]$ssdr,"log_Fbar",year=FbareGS[[1]]$year,flatten=TRUE)
+logFbarCI = generate_CI(logFbar[,2],logFbar[,3],undotrans=exp)
+FbareGS[[1]]$lower = logFbarCI$lower
+FbareGS[[1]]$upper = logFbarCI$upper
+
+Fbarp = basic_plot(FbareGS[[1]]$year,FbareGS[[1]]$Fbar,FbareGS[[1]]$lower,FbareGS[[1]]$upper,plot_group="All Years",color=colrs[1],title= tit,xlab="Year",ylab="Fbar")
+for(i in 2:length(FbareGS)){
+    Fbarp = basic_plot(FbareGS[[i]]$year,FbareGS[[i]]$Fbar,NULL,NULL,plot_group=paste0("-",i-1," Years"),color=colrs[i],title= tit,xlab="Year",ylab="Fbar",add=Fbarp)
+}
+
+Fbarp = Fbarp |>
+    plotly::config(mathjax="cdn")
+
+Fbarp
+
+```
+
+## Log Total Survey Abundance
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, out.width = "100%"}
+lSNm = get_mohns(peelsobj,"log_total_survey_abundance",details=TRUE)
+
+lSNe = lSNm$estimate
+lSNe$year = lSNm$data$year
+lSNeG = gather(lSNe,key = "peel",value="lSN",-year,na.rm=TRUE)
+lSNeG$year = as.numeric(as.character(lSNeG$year))
+lSNeGS = split(lSNeG,lSNeG$peel)
+colrs = colorspace::rainbow_hcl(length(lSNeGS))
+
+tit = plotly::TeX(paste0("\\text{Log Total Survey Abundance - Mohn's }\\rho:",round(lSNm$mohn$rho,3)))
+
+loglSN = extract_from_sdr(peelsobj[[1]]$ssdr,"log_total_survey_abundance",year=lSNeGS[[1]]$year,flatten=TRUE)
+loglSNCI = generate_CI(loglSN[,2],loglSN[,3])
+lSNeGS[[1]]$lower = loglSNCI$lower
+lSNeGS[[1]]$upper = loglSNCI$upper
+
+lSNp = basic_plot(lSNeGS[[1]]$year,lSNeGS[[1]]$lSN,lSNeGS[[1]]$lower,lSNeGS[[1]]$upper,plot_group="All Years",color=colrs[1],title= tit,xlab="Year",ylab="lSN")
+for(i in 2:length(lSNeGS)){
+    lSNp = basic_plot(lSNeGS[[i]]$year,lSNeGS[[i]]$lSN,NULL,NULL,plot_group=paste0("-",i-1," Years"),color=colrs[i],title= tit,xlab="Year",ylab="lSN",add=lSNp)
+}
+
+lSNp = lSNp |>
+    plotly::config(mathjax="cdn")
+
+lSNp
+
+
+```
+
+## Numbers at Age 
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, out.width = "100%"}
+
+double_ugh = lapply(peelsobj,function(x){
+    year = x$d_and_p$orig_data$years
+    ages = x$d_and_p$orig_data$ages
+    efs = extract_from_sdr(x$ssdr,"log_N_a",ages=ages,year=year,flatten=TRUE)
+    efsCI = generate_CI(efs$log_N_a.est,efs$log_N_a.std,undotrans=exp)
+    efs$est = efsCI$est
+    efs$lower = efsCI$lower
+    efs$upper = efsCI$upper
+    efs$term_year = tail(year,1)
+    efs
+})
+
+gorp = do.call(rbind,double_ugh) |>
+    select(year,ages,est,term_year) |>
+    group_by(ages,term_year) |>
+    spread(key=year,est) |>
+    arrange(ages,desc(term_year))
+
+gorpS = split(gorp,gorp$ages)
+estys = lapply(gorpS,function(x){
+    y = x[,-c(1,2)]
+    t(y)
+})
+
+dat = do.call(rbind,double_ugh)
+dat$year = as.numeric(as.character(dat$year))
+datS = split(dat,dat$ages)
+
+mohnsy = list()
+for(i in 1:length(estys)){
+    mohnsy[[i]] = icesAdvice::mohn(estys[[i]],ncol(estys[[i]])-1)
+}
+
+Nplots = list()
+for(i in 1:length(datS)){
+    CdatS = split(datS[[i]],datS[[i]]$term_year)
+    CdatS = rev(CdatS)
+    
+    tit = plotly::TeX(paste0("\\text{N ", "Age ",unique(CdatS[[1]]$ages)," - Mohn's }\\rho:",round(mohnsy[[i]],3)))
+    colrs = colorspace::rainbow_hcl(length(CdatS))
+
+    
+    Nplots[[i]] = basic_plot(CdatS[[1]]$year,CdatS[[1]]$est,CdatS[[1]]$lower,CdatS[[1]]$upper,"All Years",color=colrs[1],title=tit,
+                             xlab="Year",ylab="Abundance")
+    for(j in 2:length(CdatS)){
+        Nplots[[i]] = basic_plot(CdatS[[j]]$year,CdatS[[j]]$est,NULL,NULL,"All Years",color=colrs[j],title=tit,
+                             xlab="Year",ylab="Abundance",add=Nplots[[i]])
+    }
+    Nplots[[i]] = Nplots[[i]] |>
+        plotly::config(mathjax = "cdn")
+}
+
+Np = htmltools::tagList(Nplots)
+
+Np
+
+```

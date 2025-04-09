@@ -1,0 +1,617 @@
+---
+title: 2GHJ3K Redfish Model Report
+output: html_document
+params:
+  modelname: modelname
+  modelpath: modelpath
+  tmbdata: tmbdata
+  moddata: tmbdata
+  state: Nebraska
+  year: 2019
+  midwest: true
+---
+ 
+ ```{r include = FALSE}
+library(tidyverse)
+library(plotly)
+library(ggplot2)
+library(htmlwidgets)
+library(htmltools)
+ ```
+ 
+```{r include=FALSE}
+print(ls())
+orig_data = outdat$orig_data
+ssdr = outdat$ssdr
+```
+
+## Convergence Status
+```{r, echo=FALSE}
+print(outdat$opt$message)
+```
+
+## Parameters
+
+```{r, echo=FALSE}
+get_these = c("ell","L","k",
+              "s","S","b_beta1",
+              "r_b_beta2",
+              "sel_shape",
+              "sel_scale",
+              "Fy_sd",
+              "surv_sd",
+              "N0_sd",
+              "recruit_sd",
+              "rhoS",
+              "sd_survey",
+              "landings_sd",
+              "rhoC",
+              "catch_sds",
+              "init_a_pg")
+parmss = outdat$ssdr[rownames(outdat$ssdr) %in% get_these,]
+dum = data.frame(d=rownames(parmss))
+dum = dum |>
+    dplyr::group_by(d) |>
+    dplyr::count()
+
+rownames(parmss) = c("\\(\\ell\\)",
+                     "\\(L\\)",
+                     "\\(k\\)",
+                     "\\(s\\)",
+                     "\\(S\\)",
+                     "\\(\\beta_{1,sel}\\)",
+                     "\\(\\beta_{2,sel}\\)",
+                     "\\(k_{sel}\\)",
+                     "\\(\\theta_{sel}\\)",
+                     "\\(\\sigma_{Fy}\\)",
+                     "\\(\\sigma_{surv}\\)",
+                     "\\(\\sigma_{N0}\\)",
+                     "\\(\\sigma_{R}\\)",
+                     "\\(\\rho_I\\)",
+                     rep("\\(\\sigma_{I}\\)",dum$n[dum$d == "sd_survey"]),
+                     "\\(\\sigma_{landings}\\)",
+                     "\\(\\rho_{Cprop}\\)",
+                     rep("\\(\\sigma_{Cprop}\\)",dum$n[dum$d == "catch_sds"]),
+                     "\\(\\bar{a}_{A,0}\\)")
+                     
+
+aic <- function(opt){
+    k = length(opt$par)
+    nll = opt$objective
+    2*k+2*nll
+}
+nll = outdat$opt$objective
+maic = aic(outdat$opt)
+knitr::kable(round(parmss,3))
+              
+```
+
+**AIC:** `r maic`
+
+**nll:** `r nll`
+
+## VB Growth Parameters
+
+```{r, echo = FALSE}
+K = extract_from_sdr(ssdr,"K",flatten = TRUE)
+names(K) = c("est","std")
+L_inf = extract_from_sdr(ssdr,"L_inf",flatten=TRUE)
+names(L_inf) = c("est","std")
+t_zero = extract_from_sdr(ssdr,"t_zero",flatten=TRUE)
+names(t_zero) = c("est","std")
+
+
+vbdf = rbind(K,L_inf,t_zero)
+rownames(vbdf) = c("\\(K_{vb}\\)",
+               "\\(L_{\\infty}\\)",
+               "\\(t_{0}\\)")
+knitr::kable(round(vbdf,3))
+```
+## Total Abundance
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  tot_N = extract_from_sdr(outdat$ssdr,'log_total_survey_abundance',year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE) 
+  tot_N = cbind(tot_N,generate_CI(tot_N[,2],tot_N[,3])) 
+  tot_N$year = as.numeric(as.character(tot_N$year)) 
+   
+  tot_N_sur = modDat$survey |> 
+  group_by(survey.year) |> 
+  summarise(total=log(sum(total/1e6))) |> 
+  rename(year=survey.year) 
+   
+  tot_N = left_join(tot_N,tot_N_sur) 
+  N2 = basic_plot(tot_N$year,tot_N$est,ymin=tot_N$lower,ymax=tot_N$upper,plot_group = 'Survey Estimate','red','Log Total Survey Abundance',xlab='Year',ylab='Log Total Abundance (Millons)') 
+  N3 = basic_plot(tot_N$year,tot_N$total,ymin=NULL,ymax=NULL,plot_group = 'Survey','black','Log Total Abundance',xlab='Year',ylab='Log Total Survey Abundance (Millons)',add=N2) 
+N3
+```
+
+## Recruits
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+recruits = extract_from_sdr(ssdr,'log_recruit',year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE) 
+recruits = cbind(recruits,generate_CI(recruits[,2],recruits[,3])) 
+recruits$year = as.numeric(as.character(recruits$year)) 
+rec1 = basic_plot(recruits$year,recruits$est,recruits$lower,recruits$upper,'Estimate','red','Log Recruits',xlab='Year',ylab='Abundance')
+surveySub15 = modDat$survey |>
+filter(length <= 15) |>
+group_by(survey.year) |>
+summarize(index=sum(index))
+rec2 = basic_plot(surveySub15$survey.year,log(surveySub15$index),NULL,NULL,'Survey < 15 cm','black','Log Recruits',xlab='Year',ylab='Abundance',add=rec1)
+rec2 
+```
+
+## Log Survey Fit
+ 
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+ est_survey = extract_from_sdr(ssdr,'log_exp_index')
+  est_surCI = generate_CI(est_survey$est,est_survey$std,undotrans = exp)
+  log_est_surCI = generate_CI(est_survey$est,est_survey$std)
+  survey = cbind(modDat$survey,est_surCI)
+  log_survey = cbind(modDat$survey,log_est_surCI)
+  S1 =  ggplot(log_survey,aes(x=survey.year,y=log(index))) + geom_line(aes(x=survey.year,y=log(index)),color='black') +
+    geom_line(aes(x=survey.year,y=est),color='red') + geom_ribbon(aes(x=survey.year,ymin=lower,ymax=upper),fill='red',color='red',alpha=0.3) +
+    facet_wrap(~length,scales='free_y') + ggtitle('Log Survey Indices') + xlab('Year') + ylab('Log Survey Abundance (Millons)')
+ gS1 = ggplotly(S1)
+ gS1
+```
+
+### 5 cm bins
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  log_survey2 = log_survey 
+  log_survey2$est = exp(log_survey2$est) 
+  lsurvb = bin_indices(log_survey2,length,c(index,est),survey.year,c(0,5,10,15,20,25,30,35,40,45,Inf))
+  S1b =  ggplot(lsurvb,aes(x=survey.year,y=log(index))) + geom_line(aes(x=survey.year,y=log(index)),color='black') +
+  geom_line(aes(x=survey.year,y=log(est)),color='red') +
+facet_wrap(~binned,scales='free_y') + ggtitle('Log Survey Indices - 5 cm bins') + xlab('Year') + ylab('Log Survey Abundance (Millons)')
+  gS1b = ggplotly(S1b)
+  gS1b
+```
+
+### 10 cm bins
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+lsurvb2 = bin_indices(log_survey2,length,c(index,est),survey.year,c(0,10,20,30,40,Inf))
+S1b2 =  ggplot(lsurvb2,aes(x=survey.year,y=log(index))) + geom_line(aes(x=survey.year,y=log(index)),color='black') +
+geom_line(aes(x=survey.year,y=log(est)),color='red') +
+facet_wrap(~binned,scales='free_y') + ggtitle('Log Survey Indices - 10 cm bins') + xlab('Year') + ylab('Log Survey Abundance (Millons)')
+ gS1b2 = ggplotly(S1b2)
+ gS1b2
+```
+
+## Landings Fit
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  landings = extract_from_sdr(ssdr,'log_expected_landings',year=tmb.data$start_year:2020,flatten=TRUE)
+  landings = as.data.frame(cbind(landings,generate_CI(landings[,2],landings[,3],undotrans = exp),orig=modDat$landings$Total))
+  landings2 = landings
+  landings2$year = as.numeric(as.character(landings2$year))
+  landp = basic_plot(x=landings2$year,y=landings2$est,landings2$lower,landings2$upper,plot_group = 'Estimate',color='red',
+  title='Landings',xlab='Year',ylab='Landings (Tonnes)')
+  landp2 = basic_plot(x=landings2$year,y=landings2$orig,NULL,NULL,plot_group = 'Observed',color='grey',
+                      title='Landings',xlab='Year',ylab='Landings (Tonnes)',add=landp)
+
+  if(!is.null(tmb.data$log_landingsL)){
+      landings2$lB = exp(log(tmb.data$landing_nums)+tmb.data$log_landingsL)
+      landings2$uB = exp(log(tmb.data$landing_nums)+tmb.data$log_landingsU)
+      landp2 = basic_plot(x=landings2$year,y=landings2$lB,NULL,NULL,plot_group = 'Bound',color='black',
+                          title='Landings',xlab='Year',ylab='Landings (Tonnes)',add=landp2)
+      landp2 = basic_plot(x=landings2$year,y=landings2$uB,NULL,NULL,plot_group = 'Bound',color='black',
+                          title='Landings',xlab='Year',ylab='Landings (Tonnes)',add=landp2)
+      
+  }
+landp2
+```
+
+## Standardized Survey Residuals
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+surveyR = cbind(modDat$survey,resids=outdat$report$std_log_survey_resids,est_survey) 
+reslength = plotly_resids(surveyR,length,resids,'Survey Std. Residuals by Length','Length','Std. Residual') 
+reslength
+```
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+resyear = plotly_resids(surveyR,survey.year,resids,'Survey Std. Residuals by Year','Year','Std. Residual')
+resyear
+```
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+r3 =ggplot(surveyR) + geom_point(aes(x=est,y=resids)) + xlab('Log Expected Index') + ylab('Std. Residual') + geom_hline(yintercept=0)
+gr3 = ggplotly(r3)
+gr3
+```
+
+## Pearson Survey Residuals
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+surveyR = cbind(modDat$survey,resids=outdat$report$pearson_survey_resids,est_survey) 
+reslength = plotly_resids(surveyR,length,resids,'Survey Std. Residuals by Length','Length','Pearson Residual') 
+reslength
+```
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+resyear = plotly_resids(surveyR,survey.year,resids,'Survey Std. Residuals by Year','Year','Pearson Residual')
+resyear
+```
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+r3 =ggplot(surveyR) + geom_point(aes(x=est,y=resids)) + xlab('Log Expected Index') + ylab('Pearson Residual') + geom_hline(yintercept=0)
+gr3 = ggplotly(r3)
+gr3
+```
+
+## Pearson Bubble Residuals
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+ bubplot = plotly_bubbles(surveyR,survey.year,length,resids,'Survey Residuals','Year','Length')
+ bubplot
+```
+
+## Landing Residuals 
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+landingsR = cbind(modDat$landings,resids=outdat$report$std_landing_resids,landings)
+l3 = ggplot(landingsR) + geom_point(aes(x=log(est),y=resids)) + xlab('Log Expected Landings') + ylab('Std. Residual') + geom_hline(yintercept=0)
+gl3 = ggplotly(l3)
+gl3 
+```
+
+## Probability of Length at Age
+
+### January 
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+ col = hcl.colors(12,"YlOrRd",rev=TRUE)
+
+pls = outdat$report$plas_jan
+pork = lapply(1:length(pls),function(x){
+    y = as.data.frame.table(pls[[x]])
+    levels(y$Var1) = 1:tmb.data$inf_length
+    levels(y$Var2) = 1:tmb.data$A
+    y$frame = outdat$orig_data$years[x]
+    y
+})
+
+ 
+ppork = do.call(rbind,pork)
+
+ plot_ly(z=~ppork$Freq,x=~ppork$Var2,y=~ppork$Var1,frame=~ppork$frame,colors=col,type="heatmap") |>
+     layout(title="Probability of Length at Age - Jan",yaxis=list(title="Length (cm)"),xaxis=list(title="Age"))
+```
+
+## Growth Function
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+tryCatch({lmus = outdat$report$len_mus})
+if(!is.null(lmus)){
+    lsds = outdat$report$len_sds
+    lmusdf = as.data.frame.table(lmus)
+    levels(lmusdf$Var1) = 1:tmb.data$A
+    levels(lmusdf$Var2) = outdat$orig_data$years
+
+    lsdsdf = as.data.frame.table(lsds)
+    levels(lsdsdf$Var1) = 1:tmb.data$A
+    levels(lsdsdf$Var2) = outdat$orig_data$years
+    
+    lmusdf$sd = lsdsdf$Freq
+    lmusdf$upper = lmusdf$Freq+1.96*lmusdf$sd
+    lmusdf$lower = lmusdf$Freq-1.96*lmusdf$sd
+
+    plot_ly(x=~lmusdf$Var1,y=~lmusdf$Freq,frame=~lmusdf$Var2) |>
+        add_lines(x=~lmusdf$Var1,y=~lmusdf$Freq,name="mean") |>
+        add_lines(x=~lmusdf$Var1,y=~lmusdf$lower,name="95% lower") |>
+        add_lines(x=~lmusdf$Var1,y=~lmusdf$upper,name="95% upper") |>
+        layout(title="Growth Function",yaxis=list(title="Length (cm)"),
+               xaxis=list(title="Age"))
+}else{
+    htmltools::p('No growth function??')
+}
+```
+
+## Average Plus Group Age
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+tryCatch({ages_pg = outdat$report$as_pg;
+ages_pg2 = ages_pg + tmb.data$A})
+if(!is.null(ages_pg)){
+    plot_ly(x=~orig_data$years,y=~ages_pg2) |>
+        layout(title="Average Plus Group Age",yaxis=list(title="Average Age"),xaxis=list(title="Year"))
+}else{
+    htmltools::p('No tracking of plus group ages')
+}
+```
+
+## Numbers at Length
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  norm_funAY = match_normalizer(survey$index,survey$est) 
+  surv_len = plotly_ridges(survey,length,survey.year,index,xlab='Length',ylab='Year',heightlab='Index',main='Length Distribution - Survey vs. Predicted',plot_group='Survey',plot_color='black',normalizer=norm_funAY) 
+  surv_len2 =plotly_ridges(survey,length,survey.year,est,xlab='Length',ylab='Year',heightlab='Index Estimate',main='Length Distribution - Survey vs. Predicted',plot_group='Model Predicted',plot_color='red',add=surv_len,normalizer=norm_funAY) 
+surv_len2
+```
+
+## Numbers at Length - Same Scale - Logged 
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  norm_fun = match_normalizer(log(survey$index),log(survey$est),survey$survey.year) 
+  surv_len3L = plotly_ridges(survey,length,survey.year,log(index),xlab='Length',ylab='Year',heightlab='Index',main='Length Distribution - Survey vs. Predicted',plot_group='Survey',plot_color='black',normalizer=norm_fun) 
+  surv_len4L =plotly_ridges(survey,length,survey.year,log(est),xlab='Length',ylab='Year',heightlab='Index Estimate',main='Length Distribution - Survey vs. Predicted - Logged',plot_group='Model Predicted',plot_color='red',add=surv_len3L,normalizer=norm_fun)
+  surv_len4L
+```
+
+## Numbers at Length - Heatmap
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  length = tmb.data$start_length:tmb.data$end_length
+  year = tmb.data$start_year:tmb.data$end_year
+  tryCatch({numbersL = outdat$report$NL})
+  if(!is.null(numbersL)){
+      LNsurf1hm = plot_ly() |>
+          add_heatmap(y=~length,x=~year,z=~log(numbersL)) |>
+          layout(title='Log Numbers at Length- Jan 1st')
+  }else{
+      LNsurf1hm = htmltools::p('No numbers at length?')
+  }
+  LNsurf1hm
+```
+
+## Numbers at Age - Heatmap
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+ age = 1:tmb.data$A
+  length = tmb.data$start_length:tmb.data$end_length 
+  year = tmb.data$start_year:tmb.data$end_year 
+ tryCatch({numbers = outdat$report$N})
+ if(!is.null(numbers)){
+     LNAsurf1hm = plot_ly() |>
+         add_heatmap(y=~age,x=~year,z=~log(numbers)) |> 
+         layout(title='Log Numbers at Age- Jan 1st')
+ }else{
+     LNAsurf1hm = htmltools::p('No numbers at age?')
+ }
+ LNAsurf1hm
+```
+## F
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  length = tmb.data$start_length:tmb.data$end_length
+  age = 1:tmb.data$A 
+  year = tmb.data$start_year:tmb.data$end_year
+  tryCatch({F = outdat$report$F})
+  if(!is.null(F)){
+      Fsurf1hm = plot_ly() |> 
+          add_heatmap(y=~age,x=~year,z=~F) |>
+          layout(title='F')
+  }else{
+      Fsurf1hm = htmltools::p('No F?')
+  }
+Fsurf1hm
+```
+
+## M
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+ length = tmb.data$start_length:tmb.data$end_length
+  age = 1:tmb.data$A
+  year = tmb.data$start_year:tmb.data$end_year 
+ tryCatch({M = outdat$report$M})
+ if(!is.null(M)){
+     Msurf1hm = plot_ly() |> 
+         add_heatmap(y=~age,x=~year,z=~M) |>
+         layout(title='M')
+ }else{
+     Msurf1hm = htmltools::p('No M?')
+ }
+     Msurf1hm
+```
+## Catch at Length 
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  length = tmb.data$start_length:tmb.data$end_length 
+  year = tmb.data$start_year:tmb.data$end_year 
+  tryCatch({numbersCAL = outdat$report$catch_at_length})
+  if(!is.null(numbersCAL)){
+      LCLsurf1hm = plot_ly() |> 
+          add_heatmap(y=~length,x=~year,z=~log(numbersCAL)) |> 
+          layout(title='Log Catch at Length')
+  }else{
+      LCLsurf1hm = htmltools::p('No Catch at Length')
+  }
+  LCLsurf1hm
+```
+
+## Spawning Stock Biomass
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+tryCatch({ssb = extract_from_sdr(ssdr,'log_tot_ssb',year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE)})
+if(!is.null(ssb)){
+    ssb = cbind(ssb,generate_CI(ssb[,2],ssb[,3],undotrans=exp))
+    ssb$year = as.numeric(as.character(ssb$year)) 
+    ssbp = basic_plot(ssb$year,ssb$est,ssb$lower,ssb$upper,'Estimate','red','Spawning Stock Biomass',xlab='Year','SSB (Tonnes)')
+}else{
+    ssbp = htmltools::p('No SSB?')
+}
+ssbp
+```
+
+## Ratio of Survey Qs
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  QRho = tryCatch({QRho = extract_from_sdr(ssdr,'Q_rho',length=1:tmb.data$end_length,flatten=TRUE); QRho = cbind(QRho,generate_CI(QRho[,2],QRho[,3],undotrans=exp)); QRho},error=function(msg){ 
+  QRho = NULL 
+  return(QRho)}) 
+  if(!is.null(QRho)){ 
+  QRho = as.data.frame(QRho)
+  QRho$length = as.numeric(as.character(QRho$length))
+  QRhop =  basic_plot(x=QRho$length,y=QRho$est,ymin=QRho$lower,ymax=QRho$upper,plot_group='$\\rho_Q$',color='red',title='Ratio of Survey Qs',xlab='Length',ylab='$\\frac{q_{l,E}}{q_{l,C}}$') 
+  QRhop = plotly::config(QRhop,mathjax='cdn') 
+  ret = QRhop 
+  }else{ 
+  ret =htmltools::p('No \\\\(\\\\rho_Q\\\\) to plot in this model!')
+  } 
+  ret 
+```
+
+## Model Survey Qs
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+QLM = extract_from_sdr(ssdr,'QLM',length=rep(1:tmb.data$inf_length),survey=c('Engels','Campelen'),flatten=TRUE)
+QLM2 = cbind(QLM,generate_CI(QLM$QLM.est,QLM$QLM.std))
+QLM2$length = as.numeric(as.character(QLM2$length))
+engelQ = dplyr::filter(QLM2,survey== 'Engels')
+campelenQ = dplyr::filter(QLM2,survey=='Campelen')
+eqp = basic_plot(engelQ$length,engelQ$est,engelQ$lower,engelQ$upper,'Engels','orange','Survey Qs',xlab='Length',ylab='Q') 
+cqp = basic_plot(campelenQ$length,campelenQ$est,campelenQ$lower,campelenQ$upper,'Campelen','blue','Survey Qs',xlab='Length',ylab='Q',add=eqp)
+
+cqp
+```
+
+## Fishery Selectivity at Age
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  ages = 1:tmb.data$A
+  year = tmb.data$start_year:tmb.data$end_year 
+  tryCatch({Say = outdat$report$S_ay})
+  if(!is.null(Say)){
+      Sayhm = plot_ly() |> 
+          add_heatmap(y=~ages,x=~year,z=~Say) |>
+          layout(title='Selectivity by age')
+  }else{
+      Sayhm = htmltools::p('No Selectivity by age')
+  }
+Sayhm
+```
+
+## Fishery Selectivity at Length 
+
+```{r echo = FALSE,message= FALSE,warning=FALSE,out.width="100%"}
+year = tmb.data$start_year:tmb.data$end_year
+length = 1:tmb.data$inf_length
+tryCatch({S_ly1 = outdat$report$S_ly[,1]})
+tryCatch({S_ly2 = outdat$report$S_ly[,tmb.data$Y]})
+if(!is.null(S_ly1)){
+   fsl = plotly::plot_ly(x=~length,y=~S_ly1,name="Pre-moratorium",type="scatter",mode="lines") |>
+        plotly::add_trace(x=~length,y=~S_ly2,name="Post-moratorium",mode="lines")
+}else{
+    fsl = htmltools::p("No selectivity at length")
+}
+fsl
+
+```
+
+
+## CRLs
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+tryCatch({diffs = outdat$report$diffs})
+if(!is.null(diffs)){
+    yearsT = outdat$orig_data$years 
+    agg_key = outdat$orig_data$agg_key 
+    agg_key = agg_key[,as.numeric(colnames(agg_key)) %in% yearsT] 
+    fixd = lapply(1:length(diffs),function(x){dd = diffs[[x]];df = data.frame(diff=dd,year=as.numeric(colnames(agg_key)[x]),length=seq(agg_key[1,x],agg_key[2,x]-1));df;}) 
+    fixdR = do.call(rbind,fixd) 
+    fixdR2 = fixdR 
+    fixdR2$year = 'all' 
+    fixdR3 = rbind(fixdR,fixdR2) 
+    diffp = plot_ly(fixdR3,x=~length,y=~diff,frame=~year) |>
+        layout(title='Raw CRL Catch Differences (obs-exp)',yaxis=list(title='CRL Differences'),xaxis=list(title='Length'))
+}else{
+    diffp =  htmltools::p('No CRLs')
+}
+ diffp
+```
+
+## Std. CRLs
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+tryCatch({sdiffs = outdat$report$std_diffs})
+if(!is.null(sdiffs)){
+    yearsT = outdat$orig_data$years 
+    agg_key = outdat$orig_data$agg_key 
+    agg_key = agg_key[,as.numeric(colnames(agg_key)) %in% yearsT] 
+    sfixd = lapply(1:length(sdiffs),function(x){dd = sdiffs[[x]];df = data.frame(sdiff=dd,year=as.numeric(colnames(agg_key)[x]),length=seq(agg_key[1,x],agg_key[2,x]-1));df;}) 
+    sfixdR = do.call(rbind,sfixd) 
+    sfixdR2 = sfixdR 
+    sfixdR2$year = 'all' 
+    sfixdR3 = rbind(sfixdR,sfixdR2) 
+    sdiffp = plot_ly(sfixdR3,x=~length,y=~sdiff,frame=~year) |> 
+        plotly::layout(title='Std. CRL Catch Differences (obs-exp)',yaxis=list(title='Std. CRL Differences'),xaxis=list(title='Length'))
+}else{
+    sdiffp = htmltools::p('No Std. CRLS')
+}
+sdiffp
+```
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+if(!is.null(sdiffs)){
+    bubstdcrl = plotly_bubbles(sfixdR,x=year,y=length,bub_z=sdiff,' Standardized CRL Residuals',xlab='Year',ylab='Length (cm)')
+}else{
+    bubstdcrl =  htmltools::p('No Std. CRLs')
+}
+bubstdcrl
+```
+
+## Catch Proportions
+
+```{r echo = FALSE, message=FALSE,warning=FALSE,out.width="100%"}
+tryCatch({diffs = outdat$report$diffs})
+if(!is.null(diffs)){
+    yearsT = outdat$orig_data$years 
+    agg_key = outdat$orig_data$agg_key 
+    agg_key = agg_key[,as.numeric(colnames(agg_key)) %in% yearsT]
+    l_exp_props = extract_from_sdr(ssdr,"l_exp_props",flatten=TRUE)
+    proptoplot = lapply(1:ncol(agg_key),function(x){
+        df = data.frame(exp_prop=outdat$report$exp_props[[x]])
+        df$length = seq(agg_key[1,x],agg_key[2,x])
+        df$agg_prop = as.numeric(outdat$report$agg_props[[x]])
+        df$year = as.numeric(colnames(agg_key)[x])
+        ##sddd = extract_from_sdr(ssdr,"l_exp_props",length=df$length,flatten=TRUE)
+        ##CIs =generate_CI(sddd[,2],sddd[,3],undotrans=plogis)
+        ##df$lower = CIs$lower
+        ##df$upper = CIs$upper
+        df
+    })
+    propp = do.call(rbind,proptoplot)
+    CIs = generate_CI(l_exp_props[,1],l_exp_props[,2],undotrans = plogis)
+    propp$lower = CIs$lower
+    propp$upper = CIs$upper
+    proptoplot = split(propp,propp$year)
+    
+    dorpp = list()
+    for(i in 1:length(proptoplot)){
+        cdf = proptoplot[[i]]
+        bp1 = basic_plot(x=cdf$length,y=cdf$agg_prop,NULL,NULL,"Observed Prop.",color="black",title="Catch Proportions",xlab="Length (cm)",
+                                ylab="Proportion")
+        bp1 = basic_plot(x=cdf$length,y=cdf$exp_prop,cdf$lower,cdf$upper,"Expected Prop.",color="red",title=paste0("Catch Proportions - ",cdf$year[1]),xlab="Length (cm)",
+                                ylab="Proportion",add=bp1)
+    
+        dorpp[[i]] = bp1
+    
+    }
+    rows = ceiling(length(dorpp)/3)
+    ##dorppp = subplot(dorpp,nrows=rows,shareX=TRUE,shareY=FALSE,titleX=TRUE,titleY=TRUE) |>
+    ##  layout(showlegend = FALSE)
+    dorppp = htmltools::tagList(dorpp)
+    ##dorppp = htmltools::p("WHAT")
+}else{
+    dorppp = htmltools::p("No Catch proportions")
+}
+
+dorppp
+```
+
+## Raw Process Error Residuals
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+tryCatch({resNyy = outdat$report$resNraw})
+if(!is.null(resNyy)){
+    resNyyT = as.data.frame.table(resNyy)
+    levels(resNyyT$Var1) = 1:tmb.data$A 
+    levels(resNyyT$Var2) = outdat$orig_data$years
+    resNyyT$Var1 = as.numeric(as.character(resNyyT$Var1)) 
+    resNyyT$Var2 = as.numeric(as.character(resNyyT$Var2)) 
+    NpeBub = plotly_bubbles(resNyyT,Var2,Var1,Freq,'Raw Process Error Residuals','Year','Age')
+}else{
+    NpeBub = htmltools::p('No PE Residuals')
+}
+ NpeBub
+```

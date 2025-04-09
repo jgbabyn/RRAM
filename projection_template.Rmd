@@ -1,0 +1,161 @@
+---
+title: 2GHJ3K Redfish Model Projections
+output: html_document
+params:
+  projobj: projobj
+  tmbdata: tmbdata
+  modDat: modDat
+  state: Nebraska
+  year: 2019
+  midwest: true
+---
+
+```{r include = FALSE}
+library(tidyverse)
+library(plotly)
+library(ggplot2)
+library(htmlwidgets)
+library(htmltools)
+```
+
+```{r include = FALSE}
+projobj = params$projobj
+tmb.data = params$tmbdata
+outdat = projobj
+modDat = params$modDat
+ssdr = outdat$ssdr
+term_year = tmb.data$orig_end_year
+
+
+vline <- function(x = 0, color = "green") {
+
+  list(
+
+    type = "line",
+
+    y0 = 0,
+
+    y1 = 1,
+
+    yref = "paper",
+
+    x0 = x,
+
+    x1 = x,
+
+    line = list(color = color, dash="dot")
+
+  )
+
+}
+```
+
+
+## SSB
+
+```{r echo = FALSE, message = FALSE, warning = FALSE,out.width = "100%"}
+tryCatch({ssb = extract_from_sdr(ssdr,'log_tot_ssb',year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE)})
+if(!is.null(ssb)){
+    ssb = cbind(ssb,generate_CI(ssb[,2],ssb[,3],undotrans=exp))
+    ssb$year = as.numeric(as.character(ssb$year)) 
+    ssbp = basic_plot(ssb$year,ssb$est,ssb$lower,ssb$upper,'Estimate','red','Spawning Stock Biomass',xlab='Year','SSB (Tonnes)') |>
+        plotly::layout(shapes=list(vline(term_year)))
+}else{
+    ssbp = htmltools::p('No SSB?')
+}
+ssbp
+```
+
+## Recruits
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+recruits = extract_from_sdr(ssdr,'log_recruit',year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE) 
+recruits = cbind(recruits,generate_CI(recruits[,2],recruits[,3])) 
+recruits$year = as.numeric(as.character(recruits$year)) 
+rec1 = basic_plot(recruits$year,recruits$est,recruits$lower,recruits$upper,'Estimate','red','Log Recruits',xlab='Year',ylab='Abundance') |>
+    plotly::layout(shapes=list(vline(term_year)))
+rec1
+```
+
+
+## Log Total Survey Abundance
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  tot_N = extract_from_sdr(outdat$ssdr,'log_total_survey_abundance',year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE) 
+  tot_N = cbind(tot_N,generate_CI(tot_N[,2],tot_N[,3])) 
+  tot_N$year = as.numeric(as.character(tot_N$year)) 
+   
+  tot_N_sur = modDat$survey |> 
+  group_by(survey.year) |> 
+  summarise(total=log(sum(total/1e6))) |> 
+  rename(year=survey.year) 
+   
+  tot_N = left_join(tot_N,tot_N_sur) 
+  N2 = basic_plot(tot_N$year,tot_N$est,ymin=tot_N$lower,ymax=tot_N$upper,plot_group = 'Survey Estimate','red','Log Total Survey Abundance',xlab='Year',ylab='Log Total Abundance (Millons)') 
+  N3 = basic_plot(tot_N$year,tot_N$total,ymin=NULL,ymax=NULL,plot_group = 'Survey','black','Log Total Abundance',xlab='Year',ylab='Log Total Survey Abundance (Millons)',add=N2) |>
+      plotly::layout(shapes=list(vline(term_year)))
+  N3 
+```
+
+## F 
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+  length = tmb.data$start_length:tmb.data$end_length
+  age = 1:tmb.data$A 
+  year = tmb.data$start_year:tmb.data$end_year
+  tryCatch({F = outdat$report$F})
+  if(!is.null(F)){
+      Fsurf1hm = plotly::plot_ly() |> 
+          plotly::add_heatmap(y=~age,x=~year,z=~F) |>
+          plotly::layout(title='F',shapes=list(vline(term_year+0.5)))
+  }else{
+      Fsurf1hm = htmltools::p('No F?')
+  }
+Fsurf1hm 
+```
+
+## Average F
+
+```{r echo = FALSE,message = FALSE,warning = FALSE,out.width="100%"}
+
+Fbar = extract_from_sdr(outdat$ssdr,'log_Fbar',year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE) 
+Fbar = cbind(Fbar,generate_CI(Fbar[,2],Fbar[,3],undotrans = exp))
+Fbar$year = as.numeric(as.character(Fbar$year))
+
+Fbarp = basic_plot(Fbar$year,Fbar$est,ymin=Fbar$lower,ymax=Fbar$upper,plot_group = 'F','red','Average F',xlab='Year',ylab='Average F') |>
+    plotly::layout(shapes=list(vline(term_year)))
+
+
+Fbarp
+```
+
+## Numbers at Age - Heatmap
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+ age = 1:tmb.data$A
+  length = tmb.data$start_length:tmb.data$end_length 
+  year = tmb.data$start_year:tmb.data$end_year 
+ tryCatch({numbers = outdat$report$N})
+ if(!is.null(numbers)){
+     LNAsurf1hm = plot_ly() |>
+         add_heatmap(y=~age,x=~year,z=~log(numbers)) |> 
+         layout(title='Log Numbers at Age- Jan 1st',shapes=list(vline(term_year+0.5)))
+ }else{
+     LNAsurf1hm = htmltools::p('No numbers at age?')
+ }
+ LNAsurf1hm
+```
+
+## Average Plus Group Age
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+tryCatch({ages_pg = outdat$report$as_pg;
+ages_pg2 = ages_pg + tmb.data$A})
+if(!is.null(ages_pg)){
+    year = tmb.data$start_year:tmb.data$end_year 
+    plot_ly(x=~year,y=~ages_pg2) |>
+        layout(title="Average Plus Group Age",yaxis=list(title="Average Age"),xaxis=list(title="Year"),shapes=list(vline(term_year)))
+}else{
+    htmltools::p('No tracking of plus group ages')
+}
+```
