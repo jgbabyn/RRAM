@@ -4,4 +4,68 @@ R Redfish Assessment Model
 
 ** Introduction
 
-An RTMB based version of a 
+An RTMB based version of a stock assessment model for 2+3K Redfish. As requested it's not in an R package.
+
+The model and functions needed by the model are in the file ~RRAMmodelOL.R~. This also includes projection code.
+The file ~makeData.R~ contains the function to setup the raw data in a way that it can be used in the model. See the file for more
+details. ~utilities.R~ combines various code for plotting and things used for reporting. The three ~rmd~ files are used as templates
+for reporting. They are created using the function in ~utilities.R~. 
+
+~exampleRRAM.R~ shows an example of running the model, creating a report, doing projections and retros (data not included). 
+
+** Required Packages
+
+Need the following R packages to run:
+
+| Package Name |
+|--------------|
+| RTMB         |
+| TMB          |
+| dplyr        |
+| plotly       |
+| ggplot       |
+| rlang        |
+| ggplot2      |
+| ggcorrplot   |
+| rmarkdown    |
+| icesAdvice   |
+
+You do NOT need RStudio. 
+
+** pnormtape.cpp
+
+~pnormtape.cpp~ is essentially a wrapper so the TMB version of ~censored_bounds~ can be used with an RTMB model.
+It still needs to be compiled, but only when /it's/ changed and not the rest of the model. This is then made into
+a TMB object that's compatible with RTMB and that's turned into an RTMB tape using ~GetTape~. The RTMB tape is
+then wrapped in an R function also called ~censored_bounds~ that works the same way as the ~TMB~ version.
+
+** Parameters
+
+*** Fixed Effect Parameters
+
+| Symbol                | Description                                                                            |
+|-----------------------+----------------------------------------------------------------------------------------|
+| \(\ell\)              | Mean length for smallest age class                                                     |
+| \(L\)                 | Mean length for largest age class                                                      |
+| \(k\)                 | Growth rate between two successive age classes                                         |
+| \(s\)                 | SD for length of smallest age class                                                    |
+| \(S\)                 | SD for length of largest age class                                                     |
+| \(\beta_{1,sel}\)     | Midpoint of pre-moratorium selectivity at length                                       |
+| \(\beta_{2,sel}\)     | Steepness of pre-moratorium selectivity at length (Fixed percent of \(\beta_{1,sel}\)) |
+| \(\kappa_{sel}\)      | Shape of post-moratorium selectivity at length                                         |
+| \(\theta_{sel}\)      | Scale of post-moratorium selectivity at length                                         |
+| \(\sigma_{Fy}\)       | SD for total yearly fishing mortality                                                  |
+| \(\sigma_{surv}\)     | SD for the survival process (fixed)                                                    |
+| \(\sigma_{N0}\)       | SD for the initial numbers at age (fixed)                                              |
+| \(\sigma_{R}\)        | SD for recruitment                                                                     |
+| \(\rho_I\)            | Correlation for survey indices                                                         |
+| \(\sigma_I\)          | SD for survey indices                                                                  |
+| \(\sigma_{landings}\) | SD for landings (fixed)                                                                |
+| \(\rho_{Cprop}\)      | Correlation for catch proportions                                                      |
+| \(\sigma_{Cprop}\)    | SD for catch proportions                                                               |
+| \(\bar{a}_{A,0}\)     | Average age of the plus group in initial year                                          |
+
+*** Random Effects
+
+~log_Fy~: Total yearly fishing mortality (vector)
+~log_N_a~: Matrix of numbers at age
