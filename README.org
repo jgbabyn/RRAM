@@ -69,3 +69,219 @@ then wrapped in an R function also called ~censored_bounds~ that works the same 
 
 ~log_Fy~: Total yearly fishing mortality (vector)
 ~log_N_a~: Matrix of numbers at age
+
+** Setting up Data and Parameters
+
+Data and parameters should be setup through the ~build_data_and_parameters~
+function from ~makeData.R~. Arguments for the function are explained below:
+
+*** Weight at Length Array (weight_array)
+
+The function expects a 3D array with the dimensions being length, year and
+sex in that order. The dimensions should be named and male and female must be
+named "male" and "female". You need to include all lengths and years used in the
+model.
+
+*** Maturity at Length Array (maturity_array)
+
+Proportion mature at length. Use a named 3D array with dimensions being length, year and
+sex in that order. The dimensions should be named and male and female must be
+named "male" and "female". You need to include all lengths and years used in the
+model.
+
+*** Survey (survey_df)
+
+Data.frame of survey data from ~RStrap~.
+
+*** Landings (landings_df)
+
+data.frame with the following columns:
+
+| Column Name | Description                                   |
+|-------------+-----------------------------------------------|
+| Years       | The year                                      |
+| Total       | Total landings                                |
+| discards    | Weight discarded (can be NA)                  |
+| landadj     | Adjusted landings (Total-discards, can be NA) |
+| lower_bound | The lower catch bound multiplier              |
+| upper_bound | The upper catch bound multiplier              |
+
+*** base_M
+
+The underlying value of M, single value (e.g., 0.05).
+
+*** Catch Proportions at length (catch_prop)
+
+data.frame with first column being `Length Bin` then
+the remaining columns being the proportion of catch in each
+of the years included. Each of the year columns must be named with the
+corresponding year they refer to.
+
+You do not need catch proportions for each year of the model.
+
+*** Aggregate Catch Key (agg_key)
+
+This key tells the model what the first and last lengths are
+for each year included. This should be a matrix with 2 rows
+with how many columns for how many years have catch proportions.
+The first row is the minimum length included, 2nd row is maximum.
+The matrix should have column names corresponding to the years.
+
+*** years, ages, lengths
+
+Vectors of the years, age classes and lengths (survey lengths) to use in the model.
+Lengths from 1 to the min length provided are treated as a "minus" length
+group. Lengths from the max provided to the ~inf_length~ discussed
+below are a "plus" length group.
+
+*** tmb.map
+
+Optional named list to manually provide additional RTMB mapping on top of what's
+already required.
+
+*** random
+
+Optional to override the default random effect parameters defined.
+
+*** start.parms
+
+Optional, named list of start parameters to override one or more
+of the start parameters.
+
+*** data
+
+Optional, can be used to override the RTMB data
+
+*** inf_length
+
+This specifies maximum length used in the model. Default is 60.
+
+*** Q_prior_max
+
+At what length should we stop using the prior for Q? The prior is based
+off Warren 1997, see ~redfish_rat~ from  ~makeData.R~ for how the prior is
+generated.
+
+*** Plus group extension (pg_ext)
+
+How much extra length is used in calculating the plus group extension?
+
+*** roundng_bit
+
+This controls how much 95% selectivity for catch is ahead of 50% for
+the pre-moratorium period.
+
+*** survey_sd_map
+
+Standard devations for survey indices are mapped internally.
+This should by a named list of lists with a vector for each
+year and length specifying how to map the survey sds in each year.
+
+*** catch_prop_map
+
+Standard devations for catch proportions are mapped internally.
+This should by a named list of lists with a vector for each
+year and length specifying how to map the survey sds in each year.
+
+** Running the model
+
+I have found that sometimes RTMB will grab the wrong data set from the
+environment. I have found that wrapping the function in
+a wrapper with the data helps avoid this:
+
+#+begin_src R :eval never :exports code
+rram_wrapper_wrap <- function(dat){
+    rram_wrap <- function(parameters){
+        rram_model(parameters,dat)
+    }
+}
+
+rram_to_run <- rram_wrapper_wrap(d_and_p$tmb.data)    
+#+end_src
+
+Then run as essentially as usual:
+
+#+begin_src R :eval never :exports code
+obj = MakeADFun(rram_to_run,d_and_p$parameters,random=c("log_N_a","log_Fy"),map=d_and_p$map)
+opt = nlminb(obj$par,obj$fn,obj$gr,control=list(iter.max=2000,eval.max=2000))
+##Get the hessian so we can use it for projections and sdreport and only call it once
+hess = optimHess(opt$par,obj$fn,obj$gr)
+
+repp = obj$report()
+
+sdr = sdreport(obj,hessian.fixed = hess)
+ssdr = summary(sdr)
+
+#+end_src
+
+*** Reporting
+
+The reporting functions require a list with the following named
+elements, ~opt~ (the output of the optimizer), ~ssdr~ (the summary of
+the sdreport output), ~report~ (the RTMB report output) and an ~orig_data~
+list that must have the named elements ~years~, ~ages~, ~lengths~ and ~agg_key~ (the aggregate catch key).
+
+Then with that in place you can use ~create_report~ in ~utilities.R~ to
+generate an HTML file with the rpeort.
+
+#+begin_src R :eval never :exports code
+
+  ## Put things in a way to be used by the reporting system
+tmb.data = d_and_p$tmb.data
+modDat = d_and_p$mod.data
+orig_data = list(years = 1983:2020,
+                 ages = 1:20,
+                 length= 7:45,
+                 agg_key=catch_stuff$agg_key)
+outdat = list(opt=opt,ssdr=ssdr,report=repp,orig_data=orig_data)
+
+##Source the file with plotting, report gen and some utilities code
+##Uses plotly + ggplot
+source("utilities.R")
+
+##create the report!
+create_report("test",outdat,"./",tmb.data,modDat)
+#+end_src
+
+*** Projections 
+
+Projections are run through the function ~run_projections~ in ~RRAMmodelOL.R~
+You can project for a given catch amount, a specific \(F_y\) scenario or
+the terminal \(F_y\). You need to provide the matrices of female weights
+and proportion mature for the projection years.
+
+~create_projection_report~ can be used to create a report for the projections.
+
+#+begin_src R :eval never :exports code
+    proj_years = 5
+    weightsP = matrix(rowMeans(tmb.data$weightsF[,c("2016","2017","2018","2019","2020")]),ncol=proj_years,nrow=60)
+    maturityP = matrix(rowMeans(tmb.data$maturityF[,c("2016","2017","2018","2019","2020")]),ncol=proj_years,nrow=60)
+
+    ##Add a given catch amount
+    proj1 = run_projections(tmb.data,sdr,d_and_p$map,proj_years,hess,weightsP,maturityP,c("log_N_a","log_Fy"),repp,opt,given_catch = c(200,50,200,75,65))
+
+    ##Given specific log F_y
+    proj2 = run_projections(tmb.data,sdr,d_and_p$map,proj_years,hess,weightsP,maturityP,c("log_N_a","log_Fy"),repp,opt,supplied_F = c(log(0.1),log(0.2),log(0.1),log(0.1),log(0.3)))
+
+    ##Project the terminal F
+    proj3 = run_projections(tmb.data,sdr,d_and_p$map,proj_years,hess,weightsP,maturityP,c("log_N_a","log_Fy"),repp,opt)
+
+  ##Projection report
+  create_projection_report("test_pro",proj1,"./",proj1$tmb.data,modDat)
+#+end_src
+
+*** Retros
+
+Retros can be easily run using the ~run_peels~ function in ~utilities.R~ after
+supplying the ~orig_data~ from the output of the ~build_data_and_parameters~
+function.
+
+Retro reports can be made using ~create_retro_report~
+
+#+begin_src R :eval never :exports code
+
+my_retros = run_peels(d_and_p$orig_data,n_peels=6)
+
+create_retro_report("test_retro","./",my_retros)  
+#+end_src
+
