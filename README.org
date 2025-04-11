@@ -285,3 +285,74 @@ my_retros = run_peels(d_and_p$orig_data,n_peels=6)
 create_retro_report("test_retro","./",my_retros)  
 #+end_src
 
+** Details
+
+
+*** Recruitment
+
+Log recruitment follows a random walk:
+
+\begin{equation}
+\label{eq:recruitment}
+\log(R_{t+1}) \sim \mathcal{N}(\log(R_t),\sigma_R).
+\end{equation}
+
+*** Initial Numbers at age
+
+For log initial numbers at age \(a\), they are assumed to follow a steady state distribution:
+
+\begin{equation}
+\label{eq:initialN}
+\log(N_{a,0})-\log(N_{a-1,0}) \sim \mathcal{N}(-Z_{a-1,0},\sigma_{N0}), \quad a \neq 1 \text{ or } 20
+\end{equation}
+
+The plus group uses a geometric series approximation:
+
+\begin{equation}
+\label{eq:initNPG}
+\log(N_{A,0})-\log(N_{A-1,0}) \sim \mathcal{N}(-log(1-e^{-Z_{A-1,0}}),\sigma_{N0}).
+\end{equation}
+
+*** Numbers at Age:
+
+Numbers at age have a cohort effect:
+
+\begin{equation}
+\label{eq:rancohort}
+N_{a,y} =
+\begin{cases}
+\mathcal{N}(N_{a-1,y-1}e^{-Z{a-1,y-1}},\sigma_s) \quad \text{ if } a < A, a \neq R \\
+\mathcal{N}(N_{a-1,y-1}e^{-Z_{a-1,y-1}} + N_{a,y-1}e^{-Z_{a,y-1}},\sigma_s) \quad \text{ if } a = A
+\end{cases}
+\end{equation}
+
+*** Stochastic Growth Model
+
+Follows Schnute 1980
+
+**** Mean Length At Age:
+
+\begin{equation}
+\label{eq:meanlen}
+\mu_{L(a_i)}  = l+(L-l)\frac{1-k^{i-1}}{1-k^{M-1}}, \quad l < L
+\end{equation}
+
+**** SD Length at Age:
+
+\begin{equation}
+\label{eq:sdlen}
+\sigma_{L(a_i)} = s+(S-s)\frac{\mu_{L(a_i)}-l}{L-l}.
+\end{equation}
+
+**** Growth in the Plus Group
+
+Average age in plus group is tracked to give a better indication of mean length in the plus group.
+
+The ages in the plus group are assumed to be exponentially distributed with mean \(\bar{a}_{A,y}-A\) where
+\begin{equation}
+\label{pgavgage}
+\bar{a}_{A,y} = \frac{N_{A-1,y-1}*A+N_{A,y-1}*\bar{a}_{A,y-1}}{N_{A-1,y-1}+N_{A,y-1}}.
+\end{equation}
+
+
+

@@ -301,9 +301,10 @@ plotly_resids <- function(data,x,y,title,xlab,ylab){
 #' @param xlab the x axis label of the plot
 #' @param ylab the y axis label of the plot
 #' @param add plot to add on to (the object)
+#' @param mode the plotly mode
 #' @export
 basic_plot <- function(x,y,ymin=NULL,ymax=NULL,
-                       plot_group=NULL,color,title,xlab,ylab,add=NULL,CI_lab="95% CI"){
+                       plot_group=NULL,color,title,xlab,ylab,add=NULL,CI_lab="95% CI",mode="lines"){
     if(is.null(add)){
         pp = plotly::plot_ly()
     }else{
@@ -313,9 +314,14 @@ basic_plot <- function(x,y,ymin=NULL,ymax=NULL,
     fcolor = paste0("rgba(",paste0(col2rgb(color),collapse=","),"0.3)")
     f_pg = paste(plot_group,CI_lab)
 
-    pp = pp |>
-        plotly::add_trace(y=y,x=x,mode="lines",line=list(color=color),legendgroup=plot_group,name=plot_group)
-
+    if(mode == "lines"){
+        pp = pp |>
+            plotly::add_trace(y=y,x=x,mode="lines",line=list(color=color),legendgroup=plot_group,name=plot_group)
+    }else{
+        pp = pp |>
+            plotly::add_trace(y=y,x=x,marker=list(color=color),legendgroup=plot_group,name=plot_group)
+    }
+    
     if(!is.null(ymin)){
         pp = pp |>
             plotly::add_ribbons(x=x,ymin=ymin,ymax=ymax,color=fcolor,legendgroup=f_pg,name=f_pg)
@@ -323,7 +329,6 @@ basic_plot <- function(x,y,ymin=NULL,ymax=NULL,
     
     pp = pp |>
         plotly::layout(title=title,yaxis=list(title=ylab),xaxis=list(title=xlab))
-    
         
     pp
 

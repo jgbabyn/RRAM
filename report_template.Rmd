@@ -222,6 +222,20 @@ gr3 = ggplotly(r3)
 gr3
 ```
 
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+surveyR2 = surveyR
+surveyR2$`Gear Type` = ifelse(tmb.data$survey_type == 0,"Engel","Campelen")
+r4 = ggplot(surveyR2) + geom_point(aes(x=survey.year,resids)) + xlab("Year") + ylab("Std. Residual") + ggtitle("Survey Std. Residuals by Year - by Gear") + geom_hline(yintercept = 0) + stat_summary(aes(x=survey.year,y=resids),fun=mean,geom="line",size=1,color="red")  + facet_wrap(~`Gear Type`,ncol=1,scales="free_x")
+gr4 = ggplotly(r4)
+gr4
+```
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+r5 = ggplot(surveyR2) + geom_point(aes(x=length,resids)) + xlab("Year") + ylab("Std. Residual") + ggtitle("Survey Std. Residuals by Length - by Gear") + geom_hline(yintercept = 0) + stat_summary(aes(x=length,y=resids),fun=mean,geom="line",size=1,color="red")  + facet_wrap(~`Gear Type`,ncol=1)
+gr5 = ggplotly(r5)
+gr5
+```
+
 ## Pearson Survey Residuals
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
@@ -240,6 +254,21 @@ r3 =ggplot(surveyR) + geom_point(aes(x=est,y=resids)) + xlab('Log Expected Index
 gr3 = ggplotly(r3)
 gr3
 ```
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+surveyR2 = surveyR
+surveyR2$`Gear Type` = ifelse(tmb.data$survey_type == 0,"Engel","Campelen")
+r4 = ggplot(surveyR2) + geom_point(aes(x=survey.year,resids)) + xlab("Year") + ylab("Std. Residual") + ggtitle("Survey Pearson Residuals by Year - by Gear") + geom_hline(yintercept = 0) + stat_summary(aes(x=survey.year,y=resids),fun=mean,geom="line",size=1,color="red")  + facet_wrap(~`Gear Type`,ncol=1,scales="free_x")
+gr4 = ggplotly(r4)
+gr4
+```
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+r5 = ggplot(surveyR2) + geom_point(aes(x=length,resids)) + xlab("Year") + ylab("Std. Residual") + ggtitle("Survey Pearson Residuals by Length - by Gear") + geom_hline(yintercept = 0) + stat_summary(aes(x=length,y=resids),fun=mean,geom="line",size=1,color="red")  + facet_wrap(~`Gear Type`,ncol=1)
+gr5 = ggplotly(r5)
+gr5
+```
+
 
 ## Pearson Bubble Residuals
 
@@ -552,6 +581,7 @@ bubstdcrl
 
 ## Catch Proportions
 
+
 ```{r echo = FALSE, message=FALSE,warning=FALSE,out.width="100%"}
 tryCatch({diffs = outdat$report$diffs})
 if(!is.null(diffs)){
@@ -575,8 +605,43 @@ if(!is.null(diffs)){
     propp$lower = CIs$lower
     propp$upper = CIs$upper
     proptoplot = split(propp,propp$year)
+
+    agro_prop = propp |>
+        group_by(length) |>
+        summarise(expected=mean(exp_prop),aggregated=mean(agg_prop))
+
+    total1 = basic_plot(x=agro_prop$length,y=agro_prop$expected,NULL,NULL,"Expected Prop.",color="red",title="Overall Catch Proportions",xlab="Length (cm)",
+               ylab="Proportion")
+    total2 = basic_plot(x=agro_prop$length,y=agro_prop$aggregated,NULL,NULL,"Obs. Prop",color="black",title="Overall Catch Proportions",xlab="Length (cm)",
+               ylab="Proportion",add=total1)
+
+    ##pre-mora
+    premProp = propp |>
+        filter(year <= 1995) |>
+        group_by(length) |>
+        summarise(expected=mean(exp_prop),aggregated=mean(agg_prop))
+
+    pretotal1 = basic_plot(x=premProp$length,y=premProp$expected,NULL,NULL,"Expected Prop.",color="red",title="Premoratorium Catch Proportions",xlab="Length (cm)",
+               ylab="Proportion")
+    pretotal2 = basic_plot(x=premProp$length,y=premProp$aggregated,NULL,NULL,"Obs. Prop",color="black",title="Premoratorium Catch Proportions",xlab="Length (cm)",
+               ylab="Proportion",add=pretotal1)
+    ##pre-mora
+    postmProp = propp |>
+        filter(year > 1995) |>
+        group_by(length) |>
+        summarise(expected=mean(exp_prop),aggregated=mean(agg_prop))
+
+    posttotal1 = basic_plot(x=postmProp$length,y=postmProp$expected,NULL,NULL,"Expected Prop.",color="red",title="Postmoratorium Catch Proportions",xlab="Length (cm)",
+               ylab="Proportion")
+    posttotal2 = basic_plot(x=postmProp$length,y=postmProp$aggregated,NULL,NULL,"Obs. Prop",color="black",title="Postmoratorium Catch Proportions",xlab="Length (cm)",
+               ylab="Proportion",add=posttotal1)
+
+    
     
     dorpp = list()
+    dorpp[[1]] = total2
+    dorpp[[2]] = pretotal2
+    dorpp[[3]] = posttotal2
     for(i in 1:length(proptoplot)){
         cdf = proptoplot[[i]]
         bp1 = basic_plot(x=cdf$length,y=cdf$agg_prop,NULL,NULL,"Observed Prop.",color="black",title="Catch Proportions",xlab="Length (cm)",
@@ -584,7 +649,7 @@ if(!is.null(diffs)){
         bp1 = basic_plot(x=cdf$length,y=cdf$exp_prop,cdf$lower,cdf$upper,"Expected Prop.",color="red",title=paste0("Catch Proportions - ",cdf$year[1]),xlab="Length (cm)",
                                 ylab="Proportion",add=bp1)
     
-        dorpp[[i]] = bp1
+        dorpp[[i+3]] = bp1
     
     }
     rows = ceiling(length(dorpp)/3)
