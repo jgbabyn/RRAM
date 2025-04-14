@@ -198,6 +198,12 @@ rram_model <- function(parameters,dat){
     logit_rhoS = parameters$logit_rhoS
     log_sd_survey = parameters$log_sd_survey
 
+    ##asymmetric logistic parameters
+    log_delta_catch = parameters$log_delta_catch
+    log_delta_survey = parameters$log_delta_survey
+    delta_catch = exp(log_delta_catch)
+    delta_survey = exp(log_delta_survey)
+
     ##Data
     ##Not all necessarily used
     start_length = dat$start_length
@@ -357,7 +363,7 @@ rram_model <- function(parameters,dat){
             l_bin = len_bins[l]
             interior = -(1/r_b_beta2)*(l_bin-b_beta1)
             bot = (1+exp(interior))
-            S_ly[l,y] = 1/bot
+            S_ly[l,y] = (1/bot)^(1/delta_catch)
         }
     }
 
@@ -590,8 +596,8 @@ rram_model <- function(parameters,dat){
     
     for(l in 1:L3){
         len = len_bins[l]
-        QLM[l,1] = engel.Qmax/(1+exp(-engel.QK*(len-engel.QL50)))
-        QLM[l,2] = Qmax/(1+exp(-QK*(len-QL50)))
+        QLM[l,1] = (engel.Qmax/(1+exp(-engel.QK*(len-engel.QL50))))^(1/delta_survey[1])
+        QLM[l,2] = Qmax/(1+exp(-QK*(len-QL50)))^(1/delta_survey[2])
     }
     Q_rho = log(QLM[,1]/QLM[,2])
 
@@ -935,7 +941,8 @@ rram_model <- function(parameters,dat){
     Fbar = colSums(F)/A
     log_Fbar = log(Fbar)
     
-    
+    REPORT(delta_survey)
+    REPORT(delta_catch)
 
     ##Parameters
     ADREPORT(ell)
@@ -957,6 +964,8 @@ rram_model <- function(parameters,dat){
     ADREPORT(rhoC)
     ADREPORT(catch_sds)
     ADREPORT(init_a_pg)
+    ADREPORT(delta_catch)
+    ADREPORT(delta_survey)
 
     ##VB 'Parameters'
     ADREPORT(K)

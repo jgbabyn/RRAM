@@ -16,7 +16,7 @@ maturity_array = readRDS("lmaturity.rds")
 catch_stuff = readRDS("catch_and_key.rds")
 
 ##Set things for TMB map
-tmap = list(log_Qmax =as.factor(NA),log_S=as.factor(1),log_surv_sd=as.factor(NA))
+tmap = list(log_Qmax =as.factor(NA),log_S=as.factor(1),log_surv_sd=as.factor(NA),log_delta_survey=as.factor(c(1,NA)),log_delta_catch=as.factor(NA))
 
 ## Set the catch and survey SD maps which are internal! Not TMB mapped
 mmap = readRDS("mmap.rds")
@@ -79,7 +79,7 @@ source("utilities.R")
 
 
 ##create the report!
-create_report("test",outdat,"./",tmb.data,modDat)
+create_report("test2",outdat,"./",tmb.data,modDat)
 
 ## Do projections
 

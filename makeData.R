@@ -305,6 +305,10 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     parms$log_sel_scale = log(1)
     parms$log_sel_shape = log(15)
 
+    parms$log_delta_survey = c(log(1),log(1))
+    mapp$log_delta_survey = as.factor(c(1,1))
+    parms$log_delta_catch = log(1)
+
     tmb.data$catch_type = 1
 
     catch_map = lapply(catch_list,function(x){
