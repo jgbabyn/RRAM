@@ -44,16 +44,17 @@ ordered_transform <- function(x){
 #' @param inf_length the max length used in the model
 #' @param Q_prior_max the maximum of the Q prior length to use
 #' @param pg_ext controls how fine the plus group growth extension goes
-#' @param rounding_bit how much 95% selectivity for catch is ahead of 50%
+#' @param rounding_bit how much 95% selectivity for catch is ahead of 50% (if FALSE not used)
 #' @param survey_sd_map list by year and length specifying how to internally map the survey sds
 #' @param catch_prop_map list by year and length specifying how to internally map the catch prop sds
+#' @param gf_ext use the growth function extension?
 #' @export
 build_data_and_parameters <- function(weight_array,maturity_array,survey_df,landings_df,base_M,
                             catch_prop,
                             agg_key,years=1983:2021,ages=1:20,lengths=7:45,tmb.map=NULL,random=NULL,start.parms=NULL,
                             data=NULL,
                             inf_length=60
-                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL){
+                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE){
 
     ##orginal data for retros
     orig_data = list()
@@ -96,6 +97,7 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     }else{
         orig_data$catch_prop_map = NULL
     }
+    orig_data$gf_ext = gf_ext
 
     bin_adjust = 0.5
     Y = length(seq(years[1],years[length(years)]))
@@ -275,11 +277,13 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     parms$log_Fy = rep(log(0.2),tmb.data$Y)
     parms$log_Fy_sd = log(0.1)
     parms$log_Qmax = log(1)
-    parms$log_QL50 = log(12)
-    parms$log_QL95 = log(20)
+    tQL = ordered_transform(log(c(12,20)))
+    parms$log_QL50 = tQL[1]
+    parms$log_QL95 = tQL[2]
  
     parms$log_landings_sd = log(0.02)
 
+    
     mapp$log_QL95 = as.factor(NA)
     mapp$log_QL50 = as.factor(NA)
     mapp$log_N0_sd = as.factor(NA)
@@ -288,8 +292,9 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
 
     
     parms$engel.log_Qmax = log(1)
-    parms$engel.log_QL50 = log(12)
-    parms$engel.log_QL95 = log(20)
+    tQL2 = ordered_transform(log(c(12,20)))
+    parms$engel.log_QL50 = tQL2[1]
+    parms$engel.log_QL95 = tQL2[2]
 
     parms$log_N_a = matrix(log(5),nrow=tmb.data$A,ncol=tmb.data$Y)
     parms$log_N_a[tmb.data$A,] = log(4.9)
@@ -301,6 +306,11 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
 
     parms$log_b_beta1 = log(25)
     tmb.data$rounding_bit = rounding_bit
+
+    parms$log_b_beta2 = log(2)
+    if(rounding_bit != FALSE){
+        mapp$log_b_beta2 = as.factor(NA)
+    }
 
     parms$log_sel_scale = log(1)
     parms$log_sel_shape = log(15)
@@ -366,6 +376,11 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     tmb.data$proj_years = 0
     tmb.data$og_Y = tmb.data$Y
     tmb.data$supplied_F = rep(0.1,tmb.data$proj_years)
+
+    tmb.data$gf_ext = gf_ext
+    if(!gf_ext){
+        mapp$log_init_a_pg = as.factor(NA)
+    }
 
 
     ##parms$log_sd_survey = log(0.5)

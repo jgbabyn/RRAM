@@ -1,6 +1,8 @@
 ---
 title: 2GHJ3K Redfish Model Report
-output: html_document
+output: 
+   html_document:
+    fig_height: 8
 params:
   modelname: modelname
   modelpath: modelpath
@@ -130,13 +132,18 @@ N3
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
 recruits = extract_from_sdr(ssdr,'log_recruit',year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE) 
 recruits = cbind(recruits,generate_CI(recruits[,2],recruits[,3])) 
-recruits$year = as.numeric(as.character(recruits$year)) 
-rec1 = basic_plot(recruits$year,recruits$est,recruits$lower,recruits$upper,'Estimate','red','Log Recruits',xlab='Year',ylab='Abundance')
+recruits$year = as.numeric(as.character(recruits$year))
+
+survey15 = extract_from_sdr(ssdr,"log_survey15",year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE)
+survey15 = cbind(survey15,generate_CI(survey15[,2],survey15[,3]))
+survey15$year = as.numeric(as.character(survey15$year))
+
+rec1 = basic_plot(survey15$year,survey15$est,survey15$lower,survey15$upper,'Estimate','red','Log Survey Abundance under 15 cm',xlab='Year',ylab='Abundance')
 surveySub15 = modDat$survey |>
 filter(length <= 15) |>
 group_by(survey.year) |>
 summarize(index=sum(index))
-rec2 = basic_plot(surveySub15$survey.year,log(surveySub15$index),NULL,NULL,'Survey < 15 cm','black','Log Recruits',xlab='Year',ylab='Abundance',add=rec1)
+rec2 = basic_plot(surveySub15$survey.year,log(surveySub15$index),NULL,NULL,'Survey < 15 cm','black','Log Survey Abundance under 15 cm',xlab='Year',ylab='Abundance',add=rec1)
 rec2 
 ```
 
@@ -352,7 +359,7 @@ if(!is.null(ages_pg)){
 
 ## Numbers at Length
 
-```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%",fig.height=15}
   norm_funAY = match_normalizer(survey$index,survey$est) 
   surv_len = plotly_ridges(survey,length,survey.year,index,xlab='Length',ylab='Year',heightlab='Index',main='Length Distribution - Survey vs. Predicted',plot_group='Survey',plot_color='black',normalizer=norm_funAY) 
   surv_len2 =plotly_ridges(survey,length,survey.year,est,xlab='Length',ylab='Year',heightlab='Index Estimate',main='Length Distribution - Survey vs. Predicted',plot_group='Model Predicted',plot_color='red',add=surv_len,normalizer=norm_funAY) 
@@ -361,7 +368,7 @@ surv_len2
 
 ## Numbers at Length - Same Scale - Logged 
 
-```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%",fig.height=15}
   norm_fun = match_normalizer(log(survey$index),log(survey$est),survey$survey.year) 
   surv_len3L = plotly_ridges(survey,length,survey.year,log(index),xlab='Length',ylab='Year',heightlab='Index',main='Length Distribution - Survey vs. Predicted',plot_group='Survey',plot_color='black',normalizer=norm_fun) 
   surv_len4L =plotly_ridges(survey,length,survey.year,log(est),xlab='Length',ylab='Year',heightlab='Index Estimate',main='Length Distribution - Survey vs. Predicted - Logged',plot_group='Model Predicted',plot_color='red',add=surv_len3L,normalizer=norm_fun)

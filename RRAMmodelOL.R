@@ -82,8 +82,8 @@ sd_len <- function(gf,t){
     sd_t
 }
 
-mean_len_at_age <- function(gf,t,y){
-    if(t >= gf$M){
+mean_len_at_age <- function(gf,t,y,gf_ext){
+    if(t >= gf$M & gf_ext){
         weights = numeric(gf$pg_ext)
         mus = numeric(gf$pg_ext)
         for(i in 1:length(mus)){
@@ -101,8 +101,8 @@ mean_len_at_age <- function(gf,t,y){
     mu_t
 }
 
-sd_len_at_age <- function(gf,t,y){
-    if(t >= gf$M){
+sd_len_at_age <- function(gf,t,y,gf_ext){
+    if(t >= gf$M & gf_ext){
         weights = numeric(gf$pg_ext)
         sds = numeric(gf$pg_ext)
         for(i in 1:length(sds)){
@@ -203,6 +203,7 @@ rram_model <- function(parameters,dat){
     log_delta_survey = parameters$log_delta_survey
     delta_catch = exp(log_delta_catch)
     delta_survey = exp(log_delta_survey)
+    log_b_beta2 = parameters$log_b_beta2
 
     ##Data
     ##Not all necessarily used
@@ -255,7 +256,7 @@ rram_model <- function(parameters,dat){
     og_Y = dat$og_Y
     supplied_F = dat$supplied_F
     given_catch = dat$given_catch
-    
+    gf_ext = dat$gf_ext
     
     
     start_age = 1
@@ -269,15 +270,18 @@ rram_model <- function(parameters,dat){
     REPORT(log_N_a)
 
     ##Calculate the value of the mean age in the plus group
-    as_pg = numeric(Y)
-    as_pg[1] = ub_inv(log_init_a_pg,pg_ext)
-    for(y in 2:Y){
-        ##We can do this because log_N_a is a parameter (random effect)
-        as_pg[y] = (exp(log_N_a[A-1,y-1])*1+exp(log_N_a[A,y-1])*(as_pg[y-1]+1))/(exp(log_N_a[A-1,y-1])+exp(log_N_a[A,y-1]));
+    if(gf_ext){
+        as_pg = numeric(Y)
+        as_pg[1] = ub_inv(log_init_a_pg,pg_ext)
+        for(y in 2:Y){
+            ##We can do this because log_N_a is a parameter (random effect)
+            as_pg[y] = (exp(log_N_a[A-1,y-1])*1+exp(log_N_a[A,y-1])*(as_pg[y-1]+1))/(exp(log_N_a[A-1,y-1])+exp(log_N_a[A,y-1]));
 
+        }
+        REPORT(as_pg)
+    }else{
+        as_pg = 0
     }
-    REPORT(as_pg)
-
     ##Create the vector to hold the GF data and parameters and do transformations
 
     ## We want ell ALWAYS less than L
@@ -309,12 +313,12 @@ rram_model <- function(parameters,dat){
 
     for(a in 1:A){
         for(y in 1:Y){
-            len_sds[a,y] = sd_len_at_age(gf_par,ages_jan[a],y)
-            len_mus[a,y] = mean_len_at_age(gf_par,ages_jan[a],y)
-            len_sds_mid[a,y] = sd_len_at_age(gf_par,ages_mid[a],y)
-            len_mus_mid[a,y] = mean_len_at_age(gf_par,ages_mid[a],y)
-            len_sds_fall[a,y] = sd_len_at_age(gf_par,ages_fall[a],y)
-            len_mus_fall[a,y] = mean_len_at_age(gf_par,ages_fall[a],y)
+            len_sds[a,y] = sd_len_at_age(gf_par,ages_jan[a],y,gf_ext)
+            len_mus[a,y] = mean_len_at_age(gf_par,ages_jan[a],y,gf_ext)
+            len_sds_mid[a,y] = sd_len_at_age(gf_par,ages_mid[a],y,gf_ext)
+            len_mus_mid[a,y] = mean_len_at_age(gf_par,ages_mid[a],y,gf_ext)
+            len_sds_fall[a,y] = sd_len_at_age(gf_par,ages_fall[a],y,gf_ext)
+            len_mus_fall[a,y] = mean_len_at_age(gf_par,ages_fall[a],y,gf_ext)
         }
     }
 
@@ -327,9 +331,9 @@ rram_model <- function(parameters,dat){
     
     mus = matrix(NA,A,Y)
     for(y in 1:Y){
-        mu_f = mean_len_at_age(gf_par,A+0.5,y)
+        mu_f = mean_len_at_age(gf_par,A+0.5,y,gf_ext)
         for(a in 1:A){
-            mu = mean_len_at_age(gf_par,a+0.5,y)
+            mu = mean_len_at_age(gf_par,a+0.5,y,gf_ext)
             mus[a,y] = mu
             M[a,y] = base_M*((mu^(-1))/(mu_f^(-1)))
         }
@@ -354,8 +358,14 @@ rram_model <- function(parameters,dat){
     S_ly = matrix(NA,L3,Y)
 
     ##Logistic Pre-moratorium time period
-    b_beta1 = exp(log_b_beta1)
-    b_beta2 = b_beta1+rounding_bit*b_beta1
+    if(rounding_bit != FALSE){
+        b_beta1 = exp(log_b_beta1)
+        b_beta2 = b_beta1+rounding_bit*b_beta1
+    }else{
+        u_b_beta = exp(ordered_inv_transform(c(log_b_beta1,log_b_beta2)))
+        b_beta1 = u_b_beta[1]
+        b_beta2 = u_b_beta[2]
+    }
     r_b_beta2 = -1*(b_beta2-b_beta1)/(log(0.05/0.95))
 
     for(y in 1:(mora_year)){
@@ -363,7 +373,7 @@ rram_model <- function(parameters,dat){
             l_bin = len_bins[l]
             interior = -(1/r_b_beta2)*(l_bin-b_beta1)
             bot = (1+exp(interior))
-            S_ly[l,y] = (1/bot)^(1/delta_catch)
+            S_ly[l,y] = (1/bot)
         }
     }
 
@@ -586,18 +596,25 @@ rram_model <- function(parameters,dat){
     QLM = matrix(NA,L3,2)
     Qmax = exp(log_Qmax)
     engel.Qmax = exp(engel.log_Qmax)
-    QL50 = exp(log_QL50)
-    engel.QL50 = exp(engel.log_QL50)
-    QL95 = exp(log_QL95)
-    engel.QL95 = exp(engel.log_QL95)
+    QL5095 = exp(ordered_inv_transform(c(log_QL50,log_QL95)))
+    QL50 = QL5095[1]
+    QL95 = QL5095[2]
+    engel.QL5095 = exp(ordered_inv_transform(c(engel.log_QL50,engel.log_QL95)))
+    engel.QL50 = engel.QL5095[1]
+    engel.QL95 = engel.QL5095[2]
+    
+    ##QL50 = exp(log_QL50)
+    ##engel.QL50 = exp(engel.log_QL50)
+    ##QL95 = exp(log_QL95)
+    ##engel.QL95 = exp(engel.log_QL95)
     QK = -1*log(0.05/0.95)/(QL95-QL50)
     engel.QK = -1*log(0.05/0.95)/(engel.QL95-engel.QL50)
 
     
     for(l in 1:L3){
         len = len_bins[l]
-        QLM[l,1] = (engel.Qmax/(1+exp(-engel.QK*(len-engel.QL50))))^(1/delta_survey[1])
-        QLM[l,2] = Qmax/(1+exp(-QK*(len-QL50)))^(1/delta_survey[2])
+        QLM[l,1] = (engel.Qmax/(1+exp(-engel.QK*(len-engel.QL50)))^(delta_survey[1]))
+        QLM[l,2] = Qmax/(1+exp(-QK*(len-QL50)))^(delta_survey[2])
     }
     Q_rho = log(QLM[,1]/QLM[,2])
 
@@ -902,6 +919,21 @@ rram_model <- function(parameters,dat){
     log_recruit = log_N_a[1,]
     tot_ssb = exp(log_tot_ssb)
 
+    ##Calculate Survey < 15cm abundance
+    survey15 = numeric(n_years)
+    for(yy in 1:n_years){
+        curr_list = survey_list[[yy]]
+        ##Since it's off by one
+        year = curr_list$year+1
+        ##Since it's off by one 
+        stype = curr_list$type+1
+        for(l in 1:15){
+            survey15[yy] = survey15[yy] + QLM[l,stype]*NL[l,yy]
+        }
+    }
+    log_survey15 = log(survey15)
+    
+
     ##Add on A for reporting since it's a deviation 
     as_pgA = as_pg+A
     init_a_pg = as_pgA[1]
@@ -966,6 +998,7 @@ rram_model <- function(parameters,dat){
     ADREPORT(init_a_pg)
     ADREPORT(delta_catch)
     ADREPORT(delta_survey)
+    ADREPORT(log_survey15)
 
     ##VB 'Parameters'
     ADREPORT(K)
