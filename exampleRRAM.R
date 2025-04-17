@@ -16,7 +16,7 @@ maturity_array = readRDS("lmaturity.rds")
 catch_stuff = readRDS("catch_and_key.rds")
 
 ##Set things for TMB map
-tmap = list(log_Qmax =as.factor(NA),log_S=as.factor(1),log_surv_sd=as.factor(NA),log_delta_survey=as.factor(c(1,NA)),log_delta_catch=as.factor(NA),log_b_beta1 = as.factor(1),log_QL50=as.factor(1),log_QL95=as.factor(1),log_delta_survey=as.factor(c(1,NA)))
+tmap = list(log_Qmax =as.factor(NA),log_S=as.factor(1),log_surv_sd=as.factor(NA),log_delta_survey=as.factor(c(1,NA)))
 
 ## Set the catch and survey SD maps which are internal! Not TMB mapped
 mmap = readRDS("mmap.rds")
@@ -31,10 +31,12 @@ cmap = readRDS("cmap.rds")
 ##Source file to make data and parameters
 source("makeData.R")
 
+
+
 d_and_p = build_data_and_parameters(weight_array,maturity_array,survey,
                           landings,0.05,catch_stuff$prop_catch,catch_stuff$agg_key,
-                          years=1983:2020,ages=1:20,lengths=7:45,
-                          tmb.map=tmap,survey_sd_map = mmap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=FALSE)
+                          years=1983:2020,ages=1:20,lengths=7:37,
+                          tmb.map=tmap,survey_sd_map = mmap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=TRUE,sel_type = "old",l_dist="normal")
 
 ##Source the model file
 A = d_and_p$tmb.data$A
@@ -52,8 +54,11 @@ rram_wrapper_wrap <- function(dat){
 rram_to_run <- rram_wrapper_wrap(d_and_p$tmb.data)    
 
 
+
+
 obj = MakeADFun(rram_to_run,d_and_p$parameters,random=c("log_N_a","log_Fy"),map=d_and_p$map)
-opt = nlminb(obj$par,obj$fn,obj$gr,control=list(iter.max=2000,eval.max=2000,trace=TRUE))
+opt = nlminb(obj$par,obj$fn,obj$gr,control=list(iter.max=2000,eval.max=2000,trace=FALSE))
+opt = nlminb(opt$par,obj$fn,obj$gr,control=list(rel.tol=1e-8))
 ##Get the hessian so we can use it for projections and sdreport and only call it once
 hess = optimHess(opt$par,obj$fn,obj$gr)
 

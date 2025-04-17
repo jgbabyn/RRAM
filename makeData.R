@@ -48,13 +48,15 @@ ordered_transform <- function(x){
 #' @param survey_sd_map list by year and length specifying how to internally map the survey sds
 #' @param catch_prop_map list by year and length specifying how to internally map the catch prop sds
 #' @param gf_ext use the growth function extension?
+#' @param sel_type use old for logistic+gamma, new for RW
+#' @param survey_key specifies how to aggregate the survey lengths
 #' @export
 build_data_and_parameters <- function(weight_array,maturity_array,survey_df,landings_df,base_M,
                             catch_prop,
                             agg_key,years=1983:2021,ages=1:20,lengths=7:45,tmb.map=NULL,random=NULL,start.parms=NULL,
                             data=NULL,
                             inf_length=60
-                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE){
+                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE,sel_type="old",l_dist="normal"){
 
     ##orginal data for retros
     orig_data = list()
@@ -98,6 +100,7 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
         orig_data$catch_prop_map = NULL
     }
     orig_data$gf_ext = gf_ext
+    orig_data$sel_type = sel_type
 
     bin_adjust = 0.5
     Y = length(seq(years[1],years[length(years)]))
@@ -317,7 +320,6 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
 
     parms$log_delta_survey = c(log(1),log(1))
     mapp$log_delta_survey = as.factor(c(1,1))
-    parms$log_delta_catch = log(1)
 
     tmb.data$catch_type = 1
 
@@ -367,7 +369,7 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
         x$mmap
     })
     sur_map = unlist(sur_map)
-    parms$logit_rhoS = 0.1
+    parms$logit_rhoS = c(0.1,0.1)
     
     tmb.data$r_proj = 0
     tmb.data$landing_proj_y = rep(0,length(tmb.data$landing_nums))
@@ -382,7 +384,49 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
         mapp$log_init_a_pg = as.factor(NA)
     }
 
+    tmb.data$sel_type = sel_type
 
+
+        catch_years = sapply(catch_list,function(x){x$year+1})
+        all_years = 1:tmb.data$Y
+        use_years = all_years
+        catch_cols = 1:length(catch_years)
+        catch_yearsPre = catch_years[catch_years < tmb.data$mora_year+1]
+        catch_yearsPost = catch_years[catch_years >= tmb.data$mora_year+1]
+        use_years[!(use_years %in% catch_years) & (use_years < tmb.data$mora_year+1)] = max(catch_yearsPre)
+        use_years[!(use_years %in% catch_years) & (use_years >= tmb.data$mora_year+1)] = min(catch_yearsPost)
+        monkey_ears = use_years
+        for(i in 1:length(use_years)){
+            curr = use_years[i]
+            monkey_ears[i] = which(catch_years == curr)
+        }
+        
+        tmb.data$use_years = monkey_ears
+
+    if(sel_type == "old"){
+        gamma_key = rep(1,tmb.data$Y)
+        logi_key = rep(1,tmb.data$Y)
+    }else{
+        dum_df = data.frame(year=years)
+        rownames(dum_df) = years
+        dum_df$key = NA
+        dum_df$key2 = NA
+        dum_df[names(catch_yearsPre),"key2"] = 1:length(catch_yearsPre)
+        dum_df[names(catch_yearsPost),"key"] = 1:length(catch_yearsPost)
+        dum_df[is.na(dum_df$key) & dum_df$year >= 1997,"key"] = min(dum_df$key,na.rm=TRUE)
+        dum_df[is.na(dum_df$key2) & dum_df$year < 1997,"key2"] = max(dum_df$key2,na.rm=TRUE)
+        logi_key = rep(1,tmb.data$Y)
+        gamma_key = dum_df$key
+        parms$log_sel_scale = rep(log(1),max(gamma_key,na.rm=TRUE))
+        parms$log_sel_shape = rep(log(15),max(gamma_key,na.rm=TRUE))
+        parms$log_b_beta1 = rep(log(25),max(logi_key,na.rm=TRUE))
+        parms$log_b_beta2 = rep(log(2),max(logi_key,na.rm=TRUE))
+
+    }
+    tmb.data$logi_key = logi_key
+    tmb.data$gamma_key = gamma_key
+
+    tmb.data$l_dist_type = l_dist
     ##parms$log_sd_survey = log(0.5)
     parms$log_sd_survey = rep(log(0.5),length(unique(sur_map)))
     

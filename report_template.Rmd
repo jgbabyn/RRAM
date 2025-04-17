@@ -61,15 +61,15 @@ rownames(parmss) = c("\\(\\ell\\)",
                      "\\(k\\)",
                      "\\(s\\)",
                      "\\(S\\)",
-                     "\\(\\beta_{1,sel}\\)",
-                     "\\(\\beta_{2,sel}\\)",
-                     "\\(k_{sel}\\)",
-                     "\\(\\theta_{sel}\\)",
+                     rep("\\(\\beta_{1,sel}\\)",dum$n[dum$d == "b_beta1"]),
+                     rep("\\(\\beta_{2,sel}\\)",dum$n[dum$d == "r_b_beta2"]),
+                     rep("\\(k_{sel}\\)",dum$n[dum$d == "sel_shape"]),
+                     rep("\\(\\theta_{sel}\\)",dum$n[dum$d == "sel_scale"]),
                      "\\(\\sigma_{Fy}\\)",
                      "\\(\\sigma_{surv}\\)",
                      "\\(\\sigma_{N0}\\)",
                      "\\(\\sigma_{R}\\)",
-                     "\\(\\rho_I\\)",
+                     rep("\\(\\rho_I\\)",dum$n[dum$d == "rhoS"]),
                      rep("\\(\\sigma_{I}\\)",dum$n[dum$d == "sd_survey"]),
                      "\\(\\sigma_{landings}\\)",
                      "\\(\\rho_{Cprop}\\)",
@@ -315,6 +315,21 @@ ppork = do.call(rbind,pork)
      layout(title="Probability of Length at Age - Jan",yaxis=list(title="Length (cm)"),xaxis=list(title="Age"))
 ```
 
+### For first year, Jan.
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+tPl = as.data.frame.table(outdat$report$plas_jan[[1]])
+
+levels(tPl$Var1) = 1:tmb.data$inf_length
+levels(tPl$Var2) = outdat$orig_data$ages
+
+plot_ly(x=~tPl$Var1,y=~tPl$Freq,frame=~tPl$Var2) |>
+    add_lines(x=~tPl$Var1,y=~tPl$Freq,name="Prob. age at Length") |>
+    layout(title="Probability at Length",xaxis=list(title="Length (cm)"),yaxis=list(title="Probability"))
+
+
+```
+
 ## Growth Function
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
@@ -342,6 +357,22 @@ if(!is.null(lmus)){
 }else{
     htmltools::p('No growth function??')
 }
+```
+
+## Length Distributions
+
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+NLL = outdat$report$NL
+tNLL = as.data.frame.table(NLL)
+levels(tNLL$Var1) = 1:tmb.data$inf_length
+levels(tNLL$Var2) = outdat$orig_data$years
+tNLL = tNLL |>
+    group_by(Var2) |>
+    mutate(prop=Freq/sum(Freq))
+
+plot_ly(x=~tNLL$Var1,y=~tNLL$prop,frame=~tNLL$Var2) |>
+    add_lines(x=~tNLL$Var1,y=~tNLL$prop,name="Proportion") |>
+    layout(title="Length Distribution",xaxis=list(title="Length (cm)"),yaxis=list(title="Proportion"))
 ```
 
 ## Average Plus Group Age
@@ -535,7 +566,16 @@ fsl
 
 ```
 
+```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
+tS_ly = as.data.frame.table(outdat$report$S_ly)
+levels(tS_ly$Var1) = 1:tmb.data$inf_length
+levels(tS_ly$Var2) = outdat$orig_data$years
 
+plot_ly(x=~tS_ly$Var1,y=~tS_ly$Freq,frame=~tS_ly$Var2) |>
+    add_lines(x=~tS_ly$Var1,y=~tS_ly$Freq,name="Selectivity") |>
+    layout(title="Selectivity at Length",xaxis=list(title="Length (cm)"),yaxis=list(title="Selectivity"))
+
+```
 ## CRLs
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}

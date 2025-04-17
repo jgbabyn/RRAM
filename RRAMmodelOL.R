@@ -141,6 +141,33 @@ prob_len_at_age <- function(gf_mus,gf_sds,length_bins,ages){
 }
 
 
+prob_len_at_age_gamma <- function(gf_mus,gf_sds,length_bins,ages){
+    A = length(ages)
+    L = length(length_bins)
+
+    pla = matrix(NA,L,A)
+
+    for(a in 1:A){
+        for(l in 1:L){
+            scaly = gf_sds[a]^2/gf_mus[a]
+            shapy = gf_mus[a]^2/gf_sds[a]^2
+            
+            if(l == 1){
+                pla[l,a] = pgamma(length_bins[l],shape=shapy,scale=scaly)
+            }else if(l == L){
+                pla[l,a] = 1-pgamma(length_bins[l-1],shape=shapy,scale=scaly)
+            }else{
+                pla[l,a] = pgamma(length_bins[l],shape=shapy,scale=scaly)-pgamma(length_bins[l-1],shape=shapy,scale=scaly)
+            }
+            
+        }
+    }
+
+    pla
+
+}
+
+
 ##Upper bounded inverse transform
 ub_inv <- function(y, b){
     x = b - exp(y)
@@ -199,9 +226,7 @@ rram_model <- function(parameters,dat){
     log_sd_survey = parameters$log_sd_survey
 
     ##asymmetric logistic parameters
-    log_delta_catch = parameters$log_delta_catch
     log_delta_survey = parameters$log_delta_survey
-    delta_catch = exp(log_delta_catch)
     delta_survey = exp(log_delta_survey)
     log_b_beta2 = parameters$log_b_beta2
 
@@ -257,6 +282,14 @@ rram_model <- function(parameters,dat){
     supplied_F = dat$supplied_F
     given_catch = dat$given_catch
     gf_ext = dat$gf_ext
+    sel_type = dat$sel_type
+    l_dist_type = dat$l_dist_type
+
+    if(l_dist_type == "normal"){
+        plaa = prob_len_at_age
+    }else{
+        plaa = prob_len_at_age_gamma
+    }
     
     
     start_age = 1
@@ -349,26 +382,31 @@ rram_model <- function(parameters,dat){
     plas_fall = list(rep(NA,Y))
 
     for(y in 1:Y){
-        plas_jan[[y]] = prob_len_at_age(len_mus[,y],len_sds[,y],len_bins,ages_jan)
-        plas_mid[[y]] = prob_len_at_age(len_mus_mid[,y],len_sds_mid[,y],len_bins,ages_mid)
-        plas_fall[[y]] = prob_len_at_age(len_mus_fall[,y],len_sds_fall[,y],len_bins,ages_fall)
+        plas_jan[[y]] = plaa(len_mus[,y],len_sds[,y],len_bins,ages_jan)
+        plas_mid[[y]] = plaa(len_mus_mid[,y],len_sds_mid[,y],len_bins,ages_mid)
+        plas_fall[[y]] = plaa(len_mus_fall[,y],len_sds_fall[,y],len_bins,ages_fall)
     }
 
     ##Selectivity at length
     S_ly = matrix(NA,L3,Y)
 
-    ##Logistic Pre-moratorium time period
-    if(rounding_bit != FALSE){
-        b_beta1 = exp(log_b_beta1)
-        b_beta2 = b_beta1+rounding_bit*b_beta1
-    }else{
-        u_b_beta = exp(ordered_inv_transform(c(log_b_beta1,log_b_beta2)))
-        b_beta1 = u_b_beta[1]
-        b_beta2 = u_b_beta[2]
-    }
-    r_b_beta2 = -1*(b_beta2-b_beta1)/(log(0.05/0.95))
+    logi_key = dat$logi_key
 
     for(y in 1:(mora_year)){
+
+        ##Logistic Pre-moratorium time period
+        if(rounding_bit != FALSE){
+            b_beta1 = exp(log_b_beta1)
+            b_beta2 = b_beta1+rounding_bit*b_beta1
+        }else{
+            u_b_beta = exp(ordered_inv_transform(c(log_b_beta1[logi_key[y]],log_b_beta2[logi_key[y]])))
+            b_beta1 = u_b_beta[1]
+            b_beta2 = u_b_beta[2]
+        }
+        r_b_beta2 = -1*(b_beta2-b_beta1)/(log(0.05/0.95))
+
+
+        
         for(l in 1:L3){
             l_bin = len_bins[l]
             interior = -(1/r_b_beta2)*(l_bin-b_beta1)
@@ -376,22 +414,24 @@ rram_model <- function(parameters,dat){
             S_ly[l,y] = (1/bot)
         }
     }
-
     ##Gamma shaped post-moratorium
     sel_shape = exp(log_sel_shape)
     sel_scale = exp(log_sel_scale)
+    gamma_key = dat$gamma_key
     for(y in (mora_year+1):Y){
         for(l in 1:L3){
             l_bin = len_bins[l]
-            S_ly[l,y] = dgamma(l_bin,shape=sel_shape,scale=sel_scale)
+            S_ly[l,y] = dgamma(l_bin,shape=sel_shape[gamma_key[y]],scale=sel_scale[gamma_key[y]])
         }
     }
+        
+        ##Adjust gamma shaped to be between 0 and 1
+        for(y in (mora_year:Y)){
+            S_ly[,y] = S_ly[,y]/max(S_ly[,y])
+        }
+        
 
-    ##Adjust gamma shaped to be between 0 and 1
-    for(y in (mora_year:Y)){
-        S_ly[,y] = S_ly[,y]/max(S_ly[,y])
-    }
-
+    
     ##Convert S_ly to S_ay
     S_ay = matrix(NA,A,Y)
     for(y in 1:Y){
@@ -698,9 +738,10 @@ rram_model <- function(parameters,dat){
 
         log_diff = log(s_ind)-log(exp_ind)
         Ssigma = matrix(NA,nlen,nlen)
+ 
         for(ii in 1:nlen){
             for(jj in 1:ii){
-               Ssigma[ii,jj] = (rhoS^(ii-jj))*c_sd[ii]^2
+               Ssigma[ii,jj] = (rhoS[stype]^(ii-jj))*c_sd[ii]^2
                Ssigma[jj,ii] = Ssigma[ii,jj]
             }
         }
@@ -974,7 +1015,6 @@ rram_model <- function(parameters,dat){
     log_Fbar = log(Fbar)
     
     REPORT(delta_survey)
-    REPORT(delta_catch)
 
     ##Parameters
     ADREPORT(ell)
@@ -986,6 +1026,7 @@ rram_model <- function(parameters,dat){
     ADREPORT(r_b_beta2)
     ADREPORT(sel_shape)
     ADREPORT(sel_scale)
+    
     ADREPORT(Fy_sd)
     ADREPORT(surv_sd)
     ADREPORT(N0_sd)
@@ -996,7 +1037,6 @@ rram_model <- function(parameters,dat){
     ADREPORT(rhoC)
     ADREPORT(catch_sds)
     ADREPORT(init_a_pg)
-    ADREPORT(delta_catch)
     ADREPORT(delta_survey)
     ADREPORT(log_survey15)
 
