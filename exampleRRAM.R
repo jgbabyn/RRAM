@@ -21,6 +21,10 @@ tmap = list(log_Qmax =as.factor(NA),log_S=as.factor(1),log_surv_sd=as.factor(NA)
 ## Set the catch and survey SD maps which are internal! Not TMB mapped
 mmap = readRDS("mmap.rds")
 
+mmap2 = mmap
+
+mmap2[13:38] = lapply(mmap[13:38],function(x){x+3}) 
+
 ##If using 2021 data 
 mmap2021 = readRDS("mmap2021.rds")
 
@@ -31,12 +35,12 @@ cmap = readRDS("cmap.rds")
 ##Source file to make data and parameters
 source("makeData.R")
 
-
+neomap = readRDS("neomap.rds")
 
 d_and_p = build_data_and_parameters(weight_array,maturity_array,survey,
                           landings,0.05,catch_stuff$prop_catch,catch_stuff$agg_key,
-                          years=1983:2020,ages=1:20,lengths=7:37,
-                          tmb.map=tmap,survey_sd_map = mmap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=TRUE,sel_type = "old",l_dist="normal")
+                          years=1983:2020,ages=1:20,lengths=7:45,
+                          tmb.map=tmap,survey_sd_map = neomap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=FALSE,sel_type = "old",l_dist="normal")
 
 ##Source the model file
 A = d_and_p$tmb.data$A
@@ -53,8 +57,26 @@ rram_wrapper_wrap <- function(dat){
 
 rram_to_run <- rram_wrapper_wrap(d_and_p$tmb.data)    
 
+lens = lapply(1:length(d_and_p$tmb.data$survey_list),function(x){
+    yy = d_and_p$tmb.data$survey_list[[x]]
+    df = data.frame(year=x,length=yy$lengths)
+    df})
 
+case_sdlen_type <- function(year,length){
+    goose = case_when(length <= 15 ~ 0,
+              length > 15 & length <= 30 ~ 1,
+              length > 30 & length <= 35 ~ 2,
+              length > 35 ~ 3)
+    if(year[1] > 12){
+       goose = goose+4
+    }
+    goose
+}
 
+neomap = lapply(lens,function(x){
+    case_sdlen_type(x$year,x$length)})
+
+saveRDS(neomap,"neomap.rds")
 
 obj = MakeADFun(rram_to_run,d_and_p$parameters,random=c("log_N_a","log_Fy"),map=d_and_p$map)
 opt = nlminb(obj$par,obj$fn,obj$gr,control=list(iter.max=2000,eval.max=2000,trace=FALSE))
@@ -81,8 +103,6 @@ outdat = list(opt=opt,ssdr=ssdr,report=repp,orig_data=orig_data)
 ##Source the file with plotting, report gen and some utilities code
 ##Uses plotly + ggplot
 source("utilities.R")
-
-
 
 
 ##create the report!

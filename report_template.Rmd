@@ -214,18 +214,20 @@ landp2
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
 surveyR = cbind(modDat$survey,resids=outdat$report$std_log_survey_resids,est_survey) 
-reslength = plotly_resids(surveyR,length,resids,'Survey Std. Residuals by Length','Length','Std. Residual') 
+reslength = plotly_resids(surveyR,length,resids,'Survey Std. Residuals by Length','Length','Std. Residual',surveyR$survey.year,"year") 
 reslength
 ```
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
-resyear = plotly_resids(surveyR,survey.year,resids,'Survey Std. Residuals by Year','Year','Std. Residual')
+resyear = plotly_resids(surveyR,survey.year,resids,'Survey Std. Residuals by Year','Year','Std. Residual',surveyR$length,"length")
 resyear
 ```
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
 r3 =ggplot(surveyR) + geom_point(aes(x=est,y=resids)) + xlab('Log Expected Index') + ylab('Std. Residual') + geom_hline(yintercept=0)
 gr3 = ggplotly(r3)
+gr3$x$data[[1]]$text = paste0(gr3$x$data[[1]]$text,"<br /> year: ",surveyR$survey.year,"<br /> length: ",surveyR$length)
+
 gr3
 ```
 
@@ -234,12 +236,19 @@ surveyR2 = surveyR
 surveyR2$`Gear Type` = ifelse(tmb.data$survey_type == 0,"Engel","Campelen")
 r4 = ggplot(surveyR2) + geom_point(aes(x=survey.year,resids)) + xlab("Year") + ylab("Std. Residual") + ggtitle("Survey Std. Residuals by Year - by Gear") + geom_hline(yintercept = 0) + stat_summary(aes(x=survey.year,y=resids),fun=mean,geom="line",size=1,color="red")  + facet_wrap(~`Gear Type`,ncol=1,scales="free_x")
 gr4 = ggplotly(r4)
+srd = split(surveyR2,surveyR2$`Gear Type`)
+gr4$x$data[[1]]$text = paste0(gr4$x$data[[1]]$text,"<br /> length: ",srd[[1]]$length)
+gr4$x$data[[2]]$text = paste0(gr4$x$data[[2]]$text,"<br /> length: ",srd[[2]]$length)
+
 gr4
 ```
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
 r5 = ggplot(surveyR2) + geom_point(aes(x=length,resids)) + xlab("Year") + ylab("Std. Residual") + ggtitle("Survey Std. Residuals by Length - by Gear") + geom_hline(yintercept = 0) + stat_summary(aes(x=length,y=resids),fun=mean,geom="line",size=1,color="red")  + facet_wrap(~`Gear Type`,ncol=1)
 gr5 = ggplotly(r5)
+srd = split(surveyR2,surveyR2$`Gear Type`)
+gr5$x$data[[1]]$text = paste0(gr5$x$data[[1]]$text,"<br /> year: ",srd[[1]]$survey.year)
+gr5$x$data[[2]]$text = paste0(gr5$x$data[[2]]$text,"<br /> year: ",srd[[2]]$survey.year)
 gr5
 ```
 
@@ -247,18 +256,19 @@ gr5
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
 surveyR = cbind(modDat$survey,resids=outdat$report$pearson_survey_resids,est_survey) 
-reslength = plotly_resids(surveyR,length,resids,'Survey Std. Residuals by Length','Length','Pearson Residual') 
+reslength = plotly_resids(surveyR,length,resids,'Survey Std. Residuals by Length','Length','Pearson Residual',surveyR$survey.year,"year") 
 reslength
 ```
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
-resyear = plotly_resids(surveyR,survey.year,resids,'Survey Std. Residuals by Year','Year','Pearson Residual')
+resyear = plotly_resids(surveyR,survey.year,resids,'Survey Std. Residuals by Year','Year','Pearson Residual',surveyR$length,"length")
 resyear
 ```
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
 r3 =ggplot(surveyR) + geom_point(aes(x=est,y=resids)) + xlab('Log Expected Index') + ylab('Pearson Residual') + geom_hline(yintercept=0)
 gr3 = ggplotly(r3)
+gr3$x$data[[1]]$text = paste0(gr3$x$data[[1]]$text,"<br /> year: ",surveyR$survey.year,"<br /> length: ",surveyR$length)
 gr3
 ```
 
@@ -267,12 +277,20 @@ surveyR2 = surveyR
 surveyR2$`Gear Type` = ifelse(tmb.data$survey_type == 0,"Engel","Campelen")
 r4 = ggplot(surveyR2) + geom_point(aes(x=survey.year,resids)) + xlab("Year") + ylab("Std. Residual") + ggtitle("Survey Pearson Residuals by Year - by Gear") + geom_hline(yintercept = 0) + stat_summary(aes(x=survey.year,y=resids),fun=mean,geom="line",size=1,color="red")  + facet_wrap(~`Gear Type`,ncol=1,scales="free_x")
 gr4 = ggplotly(r4)
+srd = split(surveyR2,surveyR2$`Gear Type`)
+gr4$x$data[[1]]$text = paste0(gr4$x$data[[1]]$text,"<br /> length: ",srd[[1]]$length)
+gr4$x$data[[2]]$text = paste0(gr4$x$data[[2]]$text,"<br /> length: ",srd[[2]]$length)
+
 gr4
 ```
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
 r5 = ggplot(surveyR2) + geom_point(aes(x=length,resids)) + xlab("Year") + ylab("Std. Residual") + ggtitle("Survey Pearson Residuals by Length - by Gear") + geom_hline(yintercept = 0) + stat_summary(aes(x=length,y=resids),fun=mean,geom="line",size=1,color="red")  + facet_wrap(~`Gear Type`,ncol=1)
 gr5 = ggplotly(r5)
+srd = split(surveyR2,surveyR2$`Gear Type`)
+gr5$x$data[[1]]$text = paste0(gr5$x$data[[1]]$text,"<br /> year: ",srd[[1]]$survey.year)
+gr5$x$data[[2]]$text = paste0(gr5$x$data[[2]]$text,"<br /> year: ",srd[[2]]$survey.year)
+
 gr5
 ```
 

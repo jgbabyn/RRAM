@@ -279,12 +279,20 @@ plotly_corr_mat <- function(cov.matrix,title,cov.names=NULL){
 #' @param title the overall title
 #' @param xlab the x axis label
 #' @param ylab the y axis label
+#' @param extraData Column of extra data to add to the hovertext
+#' @param edname Name to use of extra data
 #' @export
-plotly_resids <- function(data,x,y,title,xlab,ylab){
+plotly_resids <- function(data,x,y,title,xlab,ylab,extraData = NULL,edname=NULL){
     r1 = ggplot2::ggplot(data) + ggplot2::geom_point(aes(x={{ x }},y={{ y }})) +
         ggplot2::xlab(xlab) + ggplot2::ylab(ylab) + ggplot2::ggtitle(title) +
         ggplot2::geom_hline(yintercept=0) + ggplot2::stat_summary(aes(x={{ x }},y={{ y }}),fun=mean,geom="line",size=1,color="red")
     gr1 = plotly::ggplotly(r1)
+    if(!is.null(extraData)){
+        if(is.null(edname)){
+            edname = "extra"
+        }
+        gr1$x$data[[1]]$text = paste0(gr1$x$data[[1]]$text,"<br /> ",edname,":",extraData)
+    }
     gr1
 }
 

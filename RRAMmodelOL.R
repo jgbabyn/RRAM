@@ -707,20 +707,24 @@ rram_model <- function(parameters,dat){
         exp_ind = numeric(length(s_ind))
         c_sd = numeric(length(s_ind))
 
+        y_min_len = min(s_len)
+        y_max_len = max(s_len)
+        
+
         for(i in 1:length(s_ind)){
             Q = QLM[s_len[i],stype]
-            if(s_len[i] <= start_length){
+            if(s_len[i] <= y_min_len){
                 NLminus = 0
-                for(l in 1:start_length){
+                for(l in 1:y_min_len){
                     Qt = QLM[l,stype]
                     NLminus = NLminus + Qt*NL_fall[l,year]
                 }
                 exp_ind[i] = NLminus
-            }else if(s_len[i] != end_length){
+            }else if(s_len[i] != y_max_len){
                 exp_ind[i] = Q*NL_fall[s_len[i],year]
             }else{
                 NLplus = 0
-                for(l in (end_length):L3){
+                for(l in (y_max_len):L3){
                     QLt = QLM[l,stype]
                     NLplus = NLplus + QLt*NL_fall[l,year]
                 }
