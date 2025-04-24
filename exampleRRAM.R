@@ -1,6 +1,7 @@
+library(tidyverse)
 
 ##Setup landing bounds, need to provide values all the way back to '59
-b1L = 1.00
+b1L = 0.95
 b1U = 1.25
 landing_b1L = rep(b1L,62)
 landing_b1U = rep(b1U,62)
@@ -16,17 +17,13 @@ maturity_array = readRDS("lmaturity.rds")
 catch_stuff = readRDS("catch_and_key.rds")
 
 ##Set things for TMB map
-tmap = list(log_Qmax =as.factor(NA),log_S=as.factor(1),log_surv_sd=as.factor(NA),log_delta_survey=as.factor(c(1,NA)))
+tmap = list(log_Qmax =as.factor(NA),log_S=as.factor(1),log_surv_sd=as.factor(NA),log_delta_survey=as.factor(c(1,NA)),log_t_df=as.factor(1))
 
-## Set the catch and survey SD maps which are internal! Not TMB mapped
-mmap = readRDS("mmap.rds")
 
-mmap2 = mmap
+##Controls the lengths used in the survey each year 
+survey_l_key = data.frame(survey.year=1983:2020,min_length=7,max_length=37)
+survey_l_key$min_length[survey_l_key$survey.year < 1995] = 7
 
-mmap2[13:38] = lapply(mmap[13:38],function(x){x+3}) 
-
-##If using 2021 data 
-mmap2021 = readRDS("mmap2021.rds")
 
 ##The example isn't using cmap though...
 cmap = readRDS("cmap.rds")
@@ -35,12 +32,49 @@ cmap = readRDS("cmap.rds")
 ##Source file to make data and parameters
 source("makeData.R")
 
-neomap = readRDS("neomap.rds")
 
+
+### Create the map for the survey SDs
 d_and_p = build_data_and_parameters(weight_array,maturity_array,survey,
                           landings,0.05,catch_stuff$prop_catch,catch_stuff$agg_key,
-                          years=1983:2020,ages=1:20,lengths=7:45,
-                          tmb.map=tmap,survey_sd_map = neomap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=FALSE,sel_type = "old",l_dist="normal")
+                          years=1983:2020,ages=1:20,survey_l_key=survey_l_key,
+                          tmb.map=tmap,survey_sd_map = NULL,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=TRUE,sel_type = "old",l_dist="normal",start.parms=start.parms,s_dist="goof")
+
+##Get the lengths in each year
+lens = lapply(1:length(d_and_p$tmb.data$survey_list),function(x){
+    yy = d_and_p$tmb.data$survey_list[[x]]
+    df = data.frame(year=x,length=yy$lengths)
+    df})
+
+##setup how you want sds for length
+case_sdlen_type <- function(year,length){
+    ##goose = rep(0,length(year))
+     goose = case_when(length <= 10 ~ 0,
+               length > 10 & length < 36 ~ 1,
+               length >= 36 ~ 2)
+    if(year[1] > 12){
+     #   goose = rep(1,length(year))
+        goose = case_when(
+            length <= 10 ~ 3,
+            length > 10 & length < 36 ~ 4,
+                         length >= 36 ~ 5)
+    }  
+    goose
+}
+
+
+
+##make map 
+neomap = lapply(lens,function(x){
+    case_sdlen_type(x$year,x$length)})
+
+##Build d_and_p with parameters
+d_and_p = build_data_and_parameters(weight_array,maturity_array,survey,
+                          landings,0.05,catch_stuff$prop_catch,catch_stuff$agg_key,
+                          years=1983:2020,ages=1:20,survey_l_key=survey_l_key,
+                          tmb.map=tmap,survey_sd_map = neomap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=TRUE,sel_type = "old",l_dist="normal",start.parms=start.parms,s_dist="normal")
+
+
 
 ##Source the model file
 A = d_and_p$tmb.data$A
@@ -57,24 +91,6 @@ rram_wrapper_wrap <- function(dat){
 
 rram_to_run <- rram_wrapper_wrap(d_and_p$tmb.data)    
 
-lens = lapply(1:length(d_and_p$tmb.data$survey_list),function(x){
-    yy = d_and_p$tmb.data$survey_list[[x]]
-    df = data.frame(year=x,length=yy$lengths)
-    df})
-
-case_sdlen_type <- function(year,length){
-    goose = case_when(length <= 15 ~ 0,
-              length > 15 & length <= 30 ~ 1,
-              length > 30 & length <= 35 ~ 2,
-              length > 35 ~ 3)
-    if(year[1] > 12){
-       goose = goose+4
-    }
-    goose
-}
-
-neomap = lapply(lens,function(x){
-    case_sdlen_type(x$year,x$length)})
 
 saveRDS(neomap,"neomap.rds")
 

@@ -36,7 +36,7 @@ ordered_transform <- function(x){
 #' @param agg_key specifies how to aggregate catch
 #' @param years vector of years to include
 #' @param ages vector of ages to use in the model
-#' @param lengths vector of lengths to include
+#' @param survey_l_key survey length key, data.frame with a survey.year, min_length and max_length columns  
 #' @param tmb.map optional named list, use to manually provide TMB map
 #' @param random optional, override the default random effect parameters
 #' @param start.parms optional named list of start parameters, used to override the starting parameters
@@ -49,14 +49,15 @@ ordered_transform <- function(x){
 #' @param catch_prop_map list by year and length specifying how to internally map the catch prop sds
 #' @param gf_ext use the growth function extension?
 #' @param sel_type use old for logistic+gamma, new for RW
-#' @param survey_key specifies how to aggregate the survey lengths
+#' @param l_dist use normal or gamma for length distribution probabilities?
+#' @param s_dist use normal or t for survey distribution?
 #' @export
 build_data_and_parameters <- function(weight_array,maturity_array,survey_df,landings_df,base_M,
                             catch_prop,
-                            agg_key,years=1983:2021,ages=1:20,lengths=7:45,tmb.map=NULL,random=NULL,start.parms=NULL,
+                            agg_key,years=1983:2021,ages=1:20,survey_l_key,tmb.map=NULL,random=NULL,start.parms=NULL,
                             data=NULL,
                             inf_length=60
-                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE,sel_type="old",l_dist="normal"){
+                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE,sel_type="old",l_dist="normal",s_dist="normal"){
 
     ##orginal data for retros
     orig_data = list()
@@ -69,7 +70,7 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     orig_data$agg_key = agg_key
     orig_data$years = years
     orig_data$ages = ages
-    orig_data$lengths = lengths
+    orig_data$survey_l_key = survey_l_key
     if(!missing(tmb.map)){
         orig_data$tmb.map = tmb.map
     }else{
@@ -101,15 +102,15 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     }
     orig_data$gf_ext = gf_ext
     orig_data$sel_type = sel_type
+    orig_data$l_dist = l_dist
+    orig_data$s_dist = s_dist
 
+    
     bin_adjust = 0.5
     Y = length(seq(years[1],years[length(years)]))
     A = length(ages)
-    L = length(lengths)
     L3 =length(1:inf_length)
 
-    start_length = lengths[1]
-    end_length = lengths[length(lengths)]
 
     start_age = ages[1]
     end_age = ages[length(ages)]
@@ -123,11 +124,15 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     maturityF = maturity_array[as.character(1:inf_length),as.character(start_year:end_year),"female"]
     maturityM = maturity_array[as.character(1:inf_length),as.character(start_year:end_year),"male"]
 
+    survey_df = dplyr::left_join(survey_df,survey_l_key)
+    end_length = max(survey_l_key$max_length)
+    
         survey2 = survey_df |>
         dplyr::filter(survey.year >= start_year) |>
-        dplyr::filter(survey.year <= end_year) |>
-        dplyr::mutate(length = dplyr::case_when(length <= start_length ~ start_length,
-                                  length >= end_length ~ end_length,
+            dplyr::filter(survey.year <= end_year) |>
+            dplyr::group_by(survey.year) |>
+        dplyr::mutate(length = dplyr::case_when(length <= min_length ~ min_length,
+                                  length >= max_length ~ max_length,
                                   TRUE ~ length)) |>
         dplyr::group_by(survey.year,length) |>
         dplyr::mutate(total=sum(total),total.lcl=sum(total.lcl),total.ucl=sum(total.ucl),
@@ -176,14 +181,12 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     
 
     tmb.data = list(
-        start_length = start_length,
+        start_length = 1,
         end_length = end_length,
         start_year = start_year,
         end_year = end_year,
         Y = Y,
         A = A,
-        L = L,
-        L2 = length(start_length:inf_length),
         L3 = L3,
         inf_length = inf_length,
         weightsF = weightsF,
@@ -386,7 +389,6 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
 
     tmb.data$sel_type = sel_type
 
-
         catch_years = sapply(catch_list,function(x){x$year+1})
         all_years = 1:tmb.data$Y
         use_years = all_years
@@ -427,6 +429,11 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     tmb.data$gamma_key = gamma_key
 
     tmb.data$l_dist_type = l_dist
+    tmb.data$s_dist_type = s_dist
+    if(s_dist != "normal"){
+        parms$log_t_df = log(4-3)
+        mapp$log_t_df = as.factor(NA)
+    }
     ##parms$log_sd_survey = log(0.5)
     parms$log_sd_survey = rep(log(0.5),length(unique(sur_map)))
     

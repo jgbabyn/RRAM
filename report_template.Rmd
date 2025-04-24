@@ -50,13 +50,18 @@ get_these = c("ell","L","k",
               "rhoC",
               "catch_sds",
               "init_a_pg")
+if(tmb.data$s_dist_type != "normal"){
+    get_these = c(get_these,"t_df")
+}
+
 parmss = outdat$ssdr[rownames(outdat$ssdr) %in% get_these,]
+parmss = parmss[which(rownames(parmss) %in% get_these),]
 dum = data.frame(d=rownames(parmss))
 dum = dum |>
     dplyr::group_by(d) |>
     dplyr::count()
 
-rownames(parmss) = c("\\(\\ell\\)",
+rparmms = c("\\(\\ell\\)",
                      "\\(L\\)",
                      "\\(k\\)",
                      "\\(s\\)",
@@ -74,8 +79,14 @@ rownames(parmss) = c("\\(\\ell\\)",
                      "\\(\\sigma_{landings}\\)",
                      "\\(\\rho_{Cprop}\\)",
                      rep("\\(\\sigma_{Cprop}\\)",dum$n[dum$d == "catch_sds"]),
-                     "\\(\\bar{a}_{A,0}\\)")
-                     
+            "\\(\\bar{a}_{A,0}\\)")
+
+if(tmb.data$s_dist_type != "normal"){
+    rparmms = c(rparmms,"\\(\\nu_s\\)")
+}
+
+
+rownames(parmss) = rparmms                    
 
 aic <- function(opt){
     k = length(opt$par)

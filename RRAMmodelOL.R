@@ -184,6 +184,19 @@ ordered_inv_transform <- function(y){
 }
 
 
+##Multivariate t distribution
+dmvt <- function(x,mu,sigma,df,give_log=FALSE){
+    p = length(x)
+    top_d = gamma((df+p)/2)
+    bottom_d = gamma(df/2)*df^(p/2)*pi^(p/2)*exp(determinant(sigma,logarithm = TRUE)$modulus)^(1/2)
+    sig_inv = solve(sigma)
+    big_b = 1+1/df*t(x-mu)%*%sig_inv%*%(x-mu)
+    res = (top_d/bottom_d)*(big_b)^(-(df+p)/2)
+    if(give_log){
+        res = log(res)
+    }
+    res
+}
 
 ##dat = exampleS$data
 
@@ -230,16 +243,15 @@ rram_model <- function(parameters,dat){
     delta_survey = exp(log_delta_survey)
     log_b_beta2 = parameters$log_b_beta2
 
+    
+
     ##Data
     ##Not all necessarily used
-    start_length = dat$start_length
-    end_length = dat$end_length
     start_year = dat$start_year
     end_year = dat$end_year
     Y = dat$Y
     A = dat$A
     L = dat$L
-    L2 = dat$L2
     L3 = dat$L3
     inf_length = dat$inf_length
     weightsF = dat$weightsF
@@ -284,6 +296,7 @@ rram_model <- function(parameters,dat){
     gf_ext = dat$gf_ext
     sel_type = dat$sel_type
     l_dist_type = dat$l_dist_type
+    s_dist_type = dat$s_dist_type
 
     if(l_dist_type == "normal"){
         plaa = prob_len_at_age
@@ -750,8 +763,20 @@ rram_model <- function(parameters,dat){
             }
         }
 
-        survey_nll[yy] = dmvnorm(log_diff,Sigma=Ssigma,log=TRUE)
-        nll = nll - dmvnorm(log_diff,Sigma=Ssigma,log=TRUE)
+        if(s_dist_type == "normal"){
+            survey_nll[yy] = dmvnorm(log_diff,Sigma=Ssigma,log=TRUE)
+            nll = nll - dmvnorm(log_diff,Sigma=Ssigma,log=TRUE)
+        }else{
+            ##We want t_df > 3
+            t_df = exp(parameters$log_t_df)+3
+            muuu = rep(0,length(log_diff))
+            survey_nll[yy] = dmvt(log_diff,muuu,Ssigma,t_df,TRUE)
+            nll = nll - dmvt(log_diff,muuu,Ssigma,t_df,TRUE)
+            ##Fix for cov, df/(df-2)*Sigma
+            Ssigma = (t_df/(t_df-2))*Ssigma
+            ##ADREPORT(t_df)
+        }
+
         
        LinvD = solve(chol(Ssigma))
        std_resids = LinvD%*%log_diff
@@ -1043,6 +1068,9 @@ rram_model <- function(parameters,dat){
     ADREPORT(init_a_pg)
     ADREPORT(delta_survey)
     ADREPORT(log_survey15)
+    if(s_dist_type != "normal"){
+        ADREPORT(t_df)
+    }
 
     ##VB 'Parameters'
     ADREPORT(K)
@@ -1072,6 +1100,8 @@ run_projections <- function(tmb.data,sdreport,map,proj_years,hessian,weights,mat
     tdat = tmb.data
     gparms = as.list(sdreport,"Estimate")
     ttmap = map
+    tdat$gamma_key = c(tdat$gamma_key,rep(tdat$gamma_key[tdat$Y],proj_years))
+
 
     if(is.null(supplied_F) & is.null(given_catch)){
 
