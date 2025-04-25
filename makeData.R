@@ -373,7 +373,7 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     }
     survey_list = lapply(1:length(survey_list),function(x){
         if(is.null(rho_s_key)){
-            survey_list[[x]]$rhotype = survey_list[[x]]$type
+            survey_list[[x]]$rhotype = survey_list[[x]]$type+1
         }else{
             survey_list[[x]]$rhotype = rho_s_key[x]
         }
