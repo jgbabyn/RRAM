@@ -8,12 +8,6 @@ landing_b1U = rep(b1U,62)
 
 ##Load data and maps and things
 survey = read.csv("unconvertedSurvey.csv")
-modify_survey = read.csv("modifiedCamplen.csv")
-
-surveyMash = survey |>
-    filter(survey.year < 1995)
-
-surveyMash = rbind(surveyMash,modify_survey)
 
 landings = read.csv("landings.csv")
 landings$lower_bound = landing_b1L
@@ -32,9 +26,6 @@ survey_l_key = data.frame(survey.year=1983:2020,min_length=7,max_length=45)
 survey_l_key$min_length[survey_l_key$survey.year < 1995] = 7
 
 
-##The example isn't using cmap though...
-cmap = readRDS("cmap.rds")
-
 
 ##Source file to make data and parameters
 source("makeData.R")
@@ -43,7 +34,7 @@ source("makeData.R")
 
 ### Create the map for the survey SDs
 ##we are just using this for the default length map
-d_and_p = build_data_and_parameters(weight_array,maturity_array,surveyMash,
+d_and_p = build_data_and_parameters(weight_array,maturity_array,survey,
                           landings,0.05,catch_stuff$prop_catch,catch_stuff$agg_key,
                           years=1983:2020,ages=1:20,survey_l_key=survey_l_key,
                           tmb.map=tmap,survey_sd_map = NULL,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=TRUE,sel_type = "old",l_dist="normal",s_dist="goof")
@@ -59,13 +50,13 @@ case_sdlen_type <- function(year,length){
     ##goose = rep(0,length(year))
      goose = case_when(length <= 10 ~ 0,
                length > 10 & length < 37 ~ 0,
-               length >= 37 ~ 1 )
+               length >= 37 ~ 0 )
     if(year[1] > 12){
         ##goose = rep(1,length(year))
          goose = case_when(
-             length <= 10 ~ 2,
-             length > 10 & length < 37 ~ 2,
-                          length >= 37 ~ 3)
+             length <= 10 ~ 1,
+             length > 10 & length < 37 ~ 1,
+                          length >= 37 ~ 1)
     }  
     goose
 }
@@ -77,10 +68,10 @@ neomap = lapply(lens,function(x){
     case_sdlen_type(x$year,x$length)})
 
 ##Build d_and_p with parameters
-d_and_p = build_data_and_parameters(weight_array,maturity_array,surveyMash,
+d_and_p = build_data_and_parameters(weight_array,maturity_array,survey,
                           landings,0.05,catch_stuff$prop_catch,catch_stuff$agg_key,
                           years=1983:2020,ages=1:20,survey_l_key=survey_l_key,
-                          tmb.map=tmap,survey_sd_map = neomap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=TRUE,sel_type = "old",l_dist="normal",s_dist="normal",c_dist="normal",plus_surv_sd=FALSE)
+                          tmb.map=tmap,survey_sd_map = neomap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=TRUE,sel_type = "old",l_dist="normal",s_dist="t",c_dist="normal",plus_surv_sd=FALSE)
 
 
 
@@ -100,7 +91,6 @@ rram_wrapper_wrap <- function(dat){
 rram_to_run <- rram_wrapper_wrap(d_and_p$tmb.data)    
 
 
-saveRDS(neomap,"neomap.rds")
 
 obj = MakeADFun(rram_to_run,d_and_p$parameters,random=c("log_N_a","log_Fy"),map=d_and_p$map)
 opt = nlminb(obj$par,obj$fn,obj$gr,control=list(iter.max=2000,eval.max=2000,trace=FALSE))
@@ -130,7 +120,7 @@ source("utilities.R")
 
 
 ##create the report!
-create_report("test2",outdat,"./",tmb.data,modDat)
+create_report("tDistSurveyReport",outdat,"./",tmb.data,modDat)
 
 ## Do projections
 

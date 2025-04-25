@@ -297,6 +297,8 @@ rram_model <- function(parameters,dat){
     sel_type = dat$sel_type
     l_dist_type = dat$l_dist_type
     s_dist_type = dat$s_dist_type
+    c_dist_type = dat$c_dist_type
+    plus_s = dat$plus_s
 
     if(l_dist_type == "normal"){
         plaa = prob_len_at_age
@@ -500,7 +502,7 @@ rram_model <- function(parameters,dat){
     ##Cohort Effect N
     ## In theory we can do correlated N stuff here
     ## We don't, but we COULD
-    surv_sd = exp(log_surv_sd)
+    ##surv_sd = exp(log_surv_sd)
     N0_sd = exp(log_N0_sd)
 
     ##predicted mean
@@ -591,23 +593,39 @@ rram_model <- function(parameters,dat){
     rec_sigma = diag(rep(exp(log_recruit_sd)^2,Y))
 
     ##Build sigma for every other age class
-    ev_sigma = diag(c(exp(log_N0_sd)^2,rep(exp(log_surv_sd)^2,Y-1)))
+    surv_sd = 0.27 - exp(log_surv_sd)
+    
+    ev_sigma = diag(c(exp(log_N0_sd)^2,rep(surv_sd^2,Y-1)))
     plus_sigma = ev_sigma
-
+    if(plus_s){
+        p_surv_sd = exp(parameters$log_p_surv_sd)
+        plus_sigma = diag(c(exp(log_N0_sd)^2,rep(p_surv_sd^2,Y-1)))
+    }
     N_nll = numeric(A)
 
     N_nll[1] = dmvnorm(mcomp[1,],mpredN[1,],rec_sigma,TRUE)
     nll = nll - dmvnorm(mcomp[1,],mpredN[1,],rec_sigma,TRUE)
     resNraw[1,] = mcomp[1,]-mpredN[1,]
 
-    for(a in 2:(A-1)){
+    if(plus_s){
+        AAA = 18
+        BBB = A
+    }else{
+        AAA = A
+    }
+    
+    for(a in 2:AAA){
         nll = nll - dmvnorm(mcomp[a,],mpredN[a,],ev_sigma,TRUE)
         N_nll[a] = dmvnorm(mcomp[a,],mpredN[a,],ev_sigma,TRUE)
         resNraw[a,] = mcomp[a,]-mpredN[a,]
     }
-    nll = nll - dmvnorm( mcomp[A,],mpredN[A,],plus_sigma,TRUE)
-    N_nll[A] = dmvnorm( mcomp[A,],mpredN[A,],plus_sigma,TRUE)
-    resNraw[A,] = mcomp[A,]-mpredN[A,]
+    if(plus_s){
+        for(a in (AAA+1):BBB){
+            nll = nll - dmvnorm( mcomp[a,],mpredN[a,],plus_sigma,TRUE)
+            N_nll[a] = dmvnorm( mcomp[a,],mpredN[a,],plus_sigma,TRUE)
+            resNraw[a,] = mcomp[a,]-mpredN[a,]
+        }
+    }
 
     REPORT(N_nll)
     REPORT(rec_sigma)
@@ -934,10 +952,21 @@ rram_model <- function(parameters,dat){
         agg_props[[i]] = agg_prop
         std_diffs[[i]] = std_diff
 
-        catch_nll[i] = dmvnorm(diff,Sigma=sigma,log=TRUE)
-        nll = nll - dmvnorm(diff,Sigma=sigma,log=TRUE)
-       
-        
+        if(c_dist_type == "normal"){
+            catch_nll[i] = dmvnorm(diff,Sigma=sigma,log=TRUE)
+            nll = nll - dmvnorm(diff,Sigma=sigma,log=TRUE)
+        }else{
+            log_c_t_df = parameters$log_c_t_df
+            c_t_df = exp(log_c_t_df)+3
+            muuu = rep(0,length(diff))
+            catch_nll[i] = dmvt(diff,muuu,sigma,c_t_df,TRUE)
+            nll = nll - dmvt(diff,muuu,sigma,c_t_df,TRUE)
+            ##Fix for cov, df/(df-2)*Sigma
+            sigma = (c_t_df/(c_t_df-2))*sigma
+            sigmas[[i]] = sigma
+            ##ADREPORT(t_df)
+   
+        }
     }
 
     REPORT(catch_nll)
@@ -1072,6 +1101,14 @@ rram_model <- function(parameters,dat){
         ADREPORT(t_df)
     }
 
+    if(c_dist_type != "normal"){
+        ADREPORT(c_t_df)
+    }
+
+    if(plus_s){
+        ADREPORT(p_surv_sd)
+    }
+    
     ##VB 'Parameters'
     ADREPORT(K)
     ADREPORT(L_inf)

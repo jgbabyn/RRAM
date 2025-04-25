@@ -54,6 +54,14 @@ if(tmb.data$s_dist_type != "normal"){
     get_these = c(get_these,"t_df")
 }
 
+if(tmb.data$c_dist_type != "normal"){
+    get_these = c(get_these,"c_t_df")
+}
+
+if(tmb.data$plus_s == TRUE){
+    get_these = c(get_these,"p_surv_sd")
+}
+
 parmss = outdat$ssdr[rownames(outdat$ssdr) %in% get_these,]
 parmss = parmss[which(rownames(parmss) %in% get_these),]
 dum = data.frame(d=rownames(parmss))
@@ -84,7 +92,13 @@ rparmms = c("\\(\\ell\\)",
 if(tmb.data$s_dist_type != "normal"){
     rparmms = c(rparmms,"\\(\\nu_s\\)")
 }
+if(tmb.data$c_dist_type != "normal"){
+    rparmms = c(rparmms,"\\(\\nu_c\\)")
+}
 
+if(tmb.data$plus_s){
+    rparmms = c(rparmms,"\\(\\sigma_{surv_p}\\)")
+}
 
 rownames(parmss) = rparmms                    
 

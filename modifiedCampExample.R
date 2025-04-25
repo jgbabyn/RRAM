@@ -59,13 +59,13 @@ case_sdlen_type <- function(year,length){
     ##goose = rep(0,length(year))
      goose = case_when(length <= 10 ~ 0,
                length > 10 & length < 37 ~ 0,
-               length >= 37 ~ 1 )
+               length >= 37 ~ 0 )
     if(year[1] > 12){
         ##goose = rep(1,length(year))
          goose = case_when(
-             length <= 10 ~ 2,
-             length > 10 & length < 37 ~ 2,
-                          length >= 37 ~ 3)
+             length <= 10 ~ 1,
+             length > 10 & length < 37 ~ 1,
+                          length >= 37 ~ 1)
     }  
     goose
 }
@@ -100,8 +100,6 @@ rram_wrapper_wrap <- function(dat){
 rram_to_run <- rram_wrapper_wrap(d_and_p$tmb.data)    
 
 
-saveRDS(neomap,"neomap.rds")
-
 obj = MakeADFun(rram_to_run,d_and_p$parameters,random=c("log_N_a","log_Fy"),map=d_and_p$map)
 opt = nlminb(obj$par,obj$fn,obj$gr,control=list(iter.max=2000,eval.max=2000,trace=FALSE))
 opt = nlminb(opt$par,obj$fn,obj$gr,control=list(rel.tol=1e-8))
@@ -130,7 +128,7 @@ source("utilities.R")
 
 
 ##create the report!
-create_report("test2",outdat,"./",tmb.data,modDat)
+create_report("modifiedCamplenReport",outdat,"./",tmb.data,modDat)
 
 ## Do projections
 

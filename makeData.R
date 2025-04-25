@@ -51,13 +51,15 @@ ordered_transform <- function(x){
 #' @param sel_type use old for logistic+gamma, new for RW
 #' @param l_dist use normal or gamma for length distribution probabilities?
 #' @param s_dist use normal or t for survey distribution?
+#' @param c_dist use normal or t for catch distribution?
+#' @param plus_surv_sd use a different survival SD for the plus group?
 #' @export
 build_data_and_parameters <- function(weight_array,maturity_array,survey_df,landings_df,base_M,
                             catch_prop,
                             agg_key,years=1983:2021,ages=1:20,survey_l_key,tmb.map=NULL,random=NULL,start.parms=NULL,
                             data=NULL,
                             inf_length=60
-                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE,sel_type="old",l_dist="normal",s_dist="normal"){
+                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE,sel_type="old",l_dist="normal",s_dist="normal",c_dist="normal",plus_surv_sd=FALSE){
 
     ##orginal data for retros
     orig_data = list()
@@ -104,6 +106,8 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     orig_data$sel_type = sel_type
     orig_data$l_dist = l_dist
     orig_data$s_dist = s_dist
+    orig_data$c_dist = c_dist
+    orig_data$plus_surv_sd = plus_surv_sd
 
     
     bin_adjust = 0.5
@@ -305,7 +309,7 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     parms$log_N_a = matrix(log(5),nrow=tmb.data$A,ncol=tmb.data$Y)
     parms$log_N_a[tmb.data$A,] = log(4.9)
     parms$log_N_a[1,] = seq(log(5),log(5.1),length.out = tmb.data$Y)
-    parms$log_surv_sd = log(0.20)
+    parms$log_surv_sd = log(0.27-0.20)
     mapp$log_surv_sd = as.factor(NA)
 
     tmb.data$mora_year = 1997-min(years)
@@ -430,10 +434,24 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
 
     tmb.data$l_dist_type = l_dist
     tmb.data$s_dist_type = s_dist
+    tmb.data$c_dist_type = c_dist
     if(s_dist != "normal"){
         parms$log_t_df = log(4-3)
-        mapp$log_t_df = as.factor(NA)
+        mapp$log_t_df = as.factor(1)
     }
+
+    if(c_dist != "normal"){
+        parms$log_c_t_df = log(4-3)
+        mapp$log_c_t_df = as.factor(1)
+    }
+
+    if(plus_surv_sd){
+        tmb.data$plus_s = TRUE
+        parms$log_p_surv_sd = log(0.4)
+    }else{
+        tmb.data$plus_s = FALSE
+    }
+    
     ##parms$log_sd_survey = log(0.5)
     parms$log_sd_survey = rep(log(0.5),length(unique(sur_map)))
     
