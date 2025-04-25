@@ -56,7 +56,7 @@ case_sdlen_type <- function(year,length){
          goose = case_when(
              length <= 10 ~ 1,
              length > 10 & length < 37 ~ 1,
-                          length >= 37 ~ 1)
+                          length >= 37 ~ 2)
     }  
     goose
 }
@@ -67,11 +67,13 @@ case_sdlen_type <- function(year,length){
 neomap = lapply(lens,function(x){
     case_sdlen_type(x$year,x$length)})
 
+rho_s_map = c(rep(1,12),rep(2,length(13:23)),rep(3,length(24:29)),rep(4,length(30:38)))
+
 ##Build d_and_p with parameters
 d_and_p = build_data_and_parameters(weight_array,maturity_array,survey,
                           landings,0.05,catch_stuff$prop_catch,catch_stuff$agg_key,
                           years=1983:2020,ages=1:20,survey_l_key=survey_l_key,
-                          tmb.map=tmap,survey_sd_map = neomap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=TRUE,sel_type = "old",l_dist="normal",s_dist="normal",c_dist="normal",plus_surv_sd=FALSE)
+                          tmb.map=tmap,survey_sd_map = neomap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=TRUE,sel_type = "old",l_dist="normal",s_dist="normal",c_dist="normal",plus_surv_sd=FALSE,rho_s_key = rho_s_map)
 
 
 
@@ -120,7 +122,7 @@ source("utilities.R")
 
 
 ##create the report!
-create_report("tDistSurveyReport",outdat,"./",tmb.data,modDat)
+create_report("corrFixSurveyReport",outdat,"./",tmb.data,modDat)
 
 ## Do projections
 

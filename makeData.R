@@ -53,13 +53,14 @@ ordered_transform <- function(x){
 #' @param s_dist use normal or t for survey distribution?
 #' @param c_dist use normal or t for catch distribution?
 #' @param plus_surv_sd use a different survival SD for the plus group?
+#' @param rho_s_key vector of how survey rho should be mapped each survey year
 #' @export
 build_data_and_parameters <- function(weight_array,maturity_array,survey_df,landings_df,base_M,
                             catch_prop,
                             agg_key,years=1983:2021,ages=1:20,survey_l_key,tmb.map=NULL,random=NULL,start.parms=NULL,
                             data=NULL,
                             inf_length=60
-                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE,sel_type="old",l_dist="normal",s_dist="normal",c_dist="normal",plus_surv_sd=FALSE){
+                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE,sel_type="old",l_dist="normal",s_dist="normal",c_dist="normal",plus_surv_sd=FALSE,rho_s_key=NULL){
 
     ##orginal data for retros
     orig_data = list()
@@ -108,6 +109,7 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     orig_data$s_dist = s_dist
     orig_data$c_dist = c_dist
     orig_data$plus_surv_sd = plus_surv_sd
+    orig_data$rho_s_key = rho_s_key
 
     
     bin_adjust = 0.5
@@ -369,6 +371,14 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
         
         survey_list[[i]] = tlist
     }
+    survey_list = lapply(1:length(survey_list),function(x){
+        if(is.null(rho_s_key)){
+            survey_list[[x]]$rhotype = survey_list[[x]]$type
+        }else{
+            survey_list[[x]]$rhotype = rho_s_key[x]
+        }
+        survey_list[[x]]
+    })
     tmb.data$survey_list = survey_list
     ## This is just the overall size of the survey indices because we need to recreate some vectors to not mess up plotting
     tmb.data$survey_size = length(tmb.data$survey_index)
@@ -376,7 +386,8 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
         x$mmap
     })
     sur_map = unlist(sur_map)
-    parms$logit_rhoS = c(0.1,0.1)
+    uniRhoS = unique(sapply(survey_list,function(x){x$rhotype}))
+    parms$logit_rhoS = c(rep(0.1,length(uniRhoS)))
     
     tmb.data$r_proj = 0
     tmb.data$landing_proj_y = rep(0,length(tmb.data$landing_nums))

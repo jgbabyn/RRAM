@@ -727,6 +727,7 @@ rram_model <- function(parameters,dat){
         ##Since it's off by one 
         stype = curr_list$type+1
         projy = curr_list$projy
+        rhotype = curr_list$rhotype
 
         s_ind = curr_list$indices
         s_len = curr_list$lengths+1
@@ -776,7 +777,7 @@ rram_model <- function(parameters,dat){
  
         for(ii in 1:nlen){
             for(jj in 1:ii){
-               Ssigma[ii,jj] = (rhoS[stype]^(ii-jj))*c_sd[ii]^2
+               Ssigma[ii,jj] = (rhoS[rhotype]^(ii-jj))*c_sd[ii]^2
                Ssigma[jj,ii] = Ssigma[ii,jj]
             }
         }
