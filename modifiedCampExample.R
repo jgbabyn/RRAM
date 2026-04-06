@@ -24,7 +24,7 @@ maturity_array = readRDS("lmaturity.rds")
 catch_stuff = readRDS("catch_and_key.rds")
 
 ##Set things for TMB map
-tmap = list(log_Qmax =as.factor(NA),log_S=as.factor(1),log_surv_sd=as.factor(NA),log_delta_survey=as.factor(c(1,NA)))
+tmap = list(log_Qmax =as.factor(NA),log_S=as.factor(1),log_surv_sd=as.factor(NA),log_delta_survey=as.factor(c(1,NA)),log_ell=as.factor(NA))
 
 
 ##Controls the lengths used in the survey each year 
@@ -80,7 +80,7 @@ neomap = lapply(lens,function(x){
 d_and_p = build_data_and_parameters(weight_array,maturity_array,surveyMash,
                           landings,0.05,catch_stuff$prop_catch,catch_stuff$agg_key,
                           years=1983:2020,ages=1:20,survey_l_key=survey_l_key,
-                          tmb.map=tmap,survey_sd_map = neomap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=TRUE,sel_type = "old",l_dist="normal",s_dist="normal",c_dist="normal",plus_surv_sd=FALSE)
+                          tmb.map=tmap,survey_sd_map = neomap,catch_prop_map = NULL,rounding_bit = 0.05,gf_ext=TRUE,sel_type = "old",l_dist="normal",s_dist="normal",c_dist="normal",plus_surv_sd=FALSE,start.parms=list(log_Q_max_sd=log(0.2),log_ell=log(4)))
 
 
 

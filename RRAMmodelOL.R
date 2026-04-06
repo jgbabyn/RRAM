@@ -343,6 +343,7 @@ rram_model <- function(parameters,dat){
                pg_ext = pg_ext,
                as_pg = as_pg)
 
+
     
     len_bins = 1:L3+bin_adjust
     ages_jan = start_age:(A)
@@ -670,7 +671,8 @@ rram_model <- function(parameters,dat){
     QL5095 = exp(ordered_inv_transform(c(log_QL50,log_QL95)))
     QL50 = QL5095[1]
     QL95 = QL5095[2]
-    engel.QL5095 = exp(ordered_inv_transform(c(engel.log_QL50,engel.log_QL95)))
+    ##engel.QL5095 = exp(ordered_inv_transform(c(engel.log_QL50,engel.log_QL95)))
+    engel.QL5095 = c(exp(engel.log_QL50),exp(engel.log_QL50)+exp(engel.log_QL95))
     engel.QL50 = engel.QL5095[1]
     engel.QL95 = engel.QL5095[2]
     
