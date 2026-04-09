@@ -23,12 +23,15 @@ Need the following R packages to run:
 | TMB          |
 | dplyr        |
 | plotly       |
-| ggplot       |
+| ggplot2      |
 | rlang        |
 | ggplot2      |
 | ggcorrplot   |
 | rmarkdown    |
 | icesAdvice   |
+| htmlwidgets  |
+| htmltools    |
+| colorspace   |
 
 You do NOT need RStudio. 
 
