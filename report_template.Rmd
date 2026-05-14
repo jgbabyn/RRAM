@@ -159,7 +159,9 @@ recruits = extract_from_sdr(ssdr,'log_recruit',year=tmb.data$start_year:tmb.data
 recruits = cbind(recruits,generate_CI(recruits[,2],recruits[,3])) 
 recruits$year = as.numeric(as.character(recruits$year))
 
-survey15 = extract_from_sdr(ssdr,"log_survey15",year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE)
+syears = unlist(lapply(tmb.data$survey_list,function(x){x$year+1}))
+survey15y = seq(tmb.data$start_year,tmb.data$end_year)[syears]
+survey15 = extract_from_sdr(ssdr,"log_survey15",year=survey15y,flatten=TRUE)
 survey15 = cbind(survey15,generate_CI(survey15[,2],survey15[,3]))
 survey15$year = as.numeric(as.character(survey15$year))
 
@@ -214,7 +216,7 @@ facet_wrap(~binned,scales='free_y') + ggtitle('Log Survey Indices - 10 cm bins')
 ## Landings Fit
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
-  landings = extract_from_sdr(ssdr,'log_expected_landings',year=tmb.data$start_year:2020,flatten=TRUE)
+  landings = extract_from_sdr(ssdr,'log_expected_landings',year=tmb.data$start_year:2025,flatten=TRUE)
   landings = as.data.frame(cbind(landings,generate_CI(landings[,2],landings[,3],undotrans = exp),orig=modDat$landings$Total))
   landings2 = landings
   landings2$year = as.numeric(as.character(landings2$year))
@@ -553,7 +555,10 @@ ssbp
   if(!is.null(QRho)){ 
   QRho = as.data.frame(QRho)
   QRho$length = as.numeric(as.character(QRho$length))
-  QRhop =  basic_plot(x=QRho$length,y=QRho$est,ymin=QRho$lower,ymax=QRho$upper,plot_group='$\\rho_Q$',color='red',title='Ratio of Survey Qs',xlab='Length',ylab='$\\frac{q_{l,E}}{q_{l,C}}$') 
+  QRho$prior = tmb.data$Qpriors[1:tmb.data$end_length]
+  QRhop =  basic_plot(x=QRho$length,y=QRho$est,ymin=QRho$lower,ymax=QRho$upper,plot_group='$\\rho_Q$',color='red',title='Ratio of Survey Qs',xlab='Length',ylab='$\\frac{q_{l,E}}{q_{l,C}}$')
+  QRhop =  basic_plot(x=QRho$length,y=QRho$prior,ymin=NULL,ymax=NULL,plot_group='Prior',color='blue',title='Ratio of Survey Qs',xlab='Length',ylab='$\\frac{q_{l,E}}{q_{l,C}}$',add=QRhop)
+  
   QRhop = plotly::config(QRhop,mathjax='cdn') 
   ret = QRhop 
   }else{ 
@@ -571,8 +576,7 @@ QLM2$length = as.numeric(as.character(QLM2$length))
 engelQ = dplyr::filter(QLM2,survey== 'Engels')
 campelenQ = dplyr::filter(QLM2,survey=='Campelen')
 eqp = basic_plot(engelQ$length,engelQ$est,engelQ$lower,engelQ$upper,'Engels','orange','Survey Qs',xlab='Length',ylab='Q') 
-cqp = basic_plot(campelenQ$length,campelenQ$est,campelenQ$lower,campelenQ$upper,'Campelen','blue','Survey Qs',xlab='Length',ylab='Q',add=eqp)
-
+cqp = basic_plot(campelenQ$length,campelenQ$est,campelenQ$lower,campelenQ$upper,'Campelen','blue','Survey Qs',xlab='Length',ylab='Q',add=eqp) 
 cqp
 ```
 
