@@ -57,7 +57,7 @@ ordered_transform <- function(x){
 #' @export
 build_data_and_parameters <- function(weight_array,maturity_array,survey_df,landings_df,base_M,
                             catch_prop,
-                            agg_key,years=1983:2021,ages=1:20,survey_l_key,tmb.map=NULL,random=NULL,start.parms=NULL,
+                            agg_key,years=1983:2025,ages=1:20,survey_l_key,tmb.map=NULL,random=NULL,start.parms=NULL,
                             data=NULL,
                             inf_length=60
                            ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE,sel_type="old",l_dist="normal",s_dist="normal",c_dist="normal",plus_surv_sd=FALSE,rho_s_key=NULL){
@@ -487,6 +487,7 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     ##Used possibly for projections
     tmb.data$given_catch = 1
 
+    orig_data$survey_years = orig_data$years[unlist(lapply(tmb.data$survey_list,function(x){x$year+1}))]
     
     ret = list(tmb.data=tmb.data,mod.data=modDat,parameters=parms,map=mapp,orig_data=orig_data)
     ret
