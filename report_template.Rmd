@@ -137,7 +137,9 @@ knitr::kable(round(vbdf,3))
 ## Total Abundance
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
-  tot_N = extract_from_sdr(outdat$ssdr,'log_total_survey_abundance',year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE) 
+syears = unlist(lapply(tmb.data$survey_list,function(x){x$year+1}))
+survey15y = seq(tmb.data$start_year,tmb.data$end_year)[syears]
+tot_N = extract_from_sdr(outdat$ssdr,'log_total_survey_abundance',year=survey15y,flatten=TRUE) 
   tot_N = cbind(tot_N,generate_CI(tot_N[,2],tot_N[,3])) 
   tot_N$year = as.numeric(as.character(tot_N$year)) 
    
