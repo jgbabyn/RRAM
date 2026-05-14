@@ -517,8 +517,10 @@ get_mohns <- function(peels,quantity,details=FALSE,get_years=TRUE,...){
     }
 
     quant_combo = dplyr::left_join(quant_list[[1]], quant_list[[2]])
+    if(length(quant_list) > 2){
     for (i in 3:length(quant_list)) {
         quant_combo = dplyr::left_join(quant_combo, quant_list[[i]])
+    }
     }
     estimates = dplyr::select(quant_combo, dplyr::contains(".est"))
     mohns = icesAdvice::mohn(estimates, peels = length(peels) - 
