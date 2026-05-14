@@ -86,7 +86,7 @@ Fbarp
 ## Log Total Survey Abundance
 
 ```{r, echo = FALSE, message = FALSE, warning = FALSE, out.width = "100%"}
-lSNm = get_mohns(peelsobj,"log_total_survey_abundance",details=TRUE)
+lSNm = get_mohns(peelsobj,"log_total_survey_abundance",get_years="survey",details=TRUE)
 
 lSNe = lSNm$estimate
 lSNe$year = lSNm$data$year

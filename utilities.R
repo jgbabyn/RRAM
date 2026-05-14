@@ -502,7 +502,7 @@ get_mohns <- function(peels,quantity,details=FALSE,get_years=TRUE,...){
         if(get_years == FALSE){
             arg_list = list(sdr= ssdr,var.name=quantity,flatten=TRUE)
         }else if(get_years == "survey"){
-            tyear = peels[[i]]$d_and_p$orig_data$survey_years
+            tyear = peels[[i]]$d_and_p$tmb.data$survey_years
             arg_list = list(sdr = ssdr, var.name = quantity, flatten = TRUE,year=tyear)
         }else{
             tyear = peels[[i]]$d_and_p$orig_data$years

@@ -487,7 +487,7 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     ##Used possibly for projections
     tmb.data$given_catch = 1
 
-    orig_data$survey_years = orig_data$years[unlist(lapply(tmb.data$survey_list,function(x){x$year+1}))]
+    tmb.data$survey_years = orig_data$years[unlist(lapply(tmb.data$survey_list,function(x){x$year+1}))]
     
     ret = list(tmb.data=tmb.data,mod.data=modDat,parameters=parms,map=mapp,orig_data=orig_data)
     ret
