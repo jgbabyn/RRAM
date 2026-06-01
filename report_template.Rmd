@@ -218,7 +218,7 @@ facet_wrap(~binned,scales='free_y') + ggtitle('Log Survey Indices - 10 cm bins')
 ## Landings Fit
 
 ```{r echo = FALSE,message=FALSE,warning=FALSE,out.width="100%"}
-  landings = extract_from_sdr(ssdr,'log_expected_landings',year=tmb.data$start_year:2025,flatten=TRUE)
+  landings = extract_from_sdr(ssdr,'log_expected_landings',year=tmb.data$start_year:tmb.data$end_year,flatten=TRUE)
   landings = as.data.frame(cbind(landings,generate_CI(landings[,2],landings[,3],undotrans = exp),orig=modDat$landings$Total))
   landings2 = landings
   landings2$year = as.numeric(as.character(landings2$year))
