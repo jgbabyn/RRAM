@@ -243,6 +243,8 @@ rram_model <- function(parameters,dat){
     delta_survey = exp(log_delta_survey)
     log_b_beta2 = parameters$log_b_beta2
 
+    log_c_qmax_sd = parameters$log_c_qmax_sd
+
     
 
     ##Data
@@ -299,6 +301,7 @@ rram_model <- function(parameters,dat){
     s_dist_type = dat$s_dist_type
     c_dist_type = dat$c_dist_type
     plus_s = dat$plus_s
+    c_qmax_prior = dat$c_qmax_prior
 
     if(l_dist_type == "normal"){
         plaa = prob_len_at_age
@@ -692,6 +695,10 @@ rram_model <- function(parameters,dat){
     Q_rho = log(QLM[,1]/QLM[,2])
 
     Q_nll = numeric(L3)
+    if(c_qmax_prior == TRUE){
+        nll = nll - dnorm(log_Qmax,log(1.0),exp(log_c_qmax_sd),TRUE)
+    }
+  
     if(Q_prior == TRUE){
         Q_max_sd = exp(log_Q_max_sd)
         for(l in 1:L3){

@@ -54,13 +54,14 @@ ordered_transform <- function(x){
 #' @param c_dist use normal or t for catch distribution?
 #' @param plus_surv_sd use a different survival SD for the plus group?
 #' @param rho_s_key vector of how survey rho should be mapped each survey year
+#' @param c_qmax_prior use a prior for campelen qmax
 #' @export
 build_data_and_parameters <- function(weight_array,maturity_array,survey_df,landings_df,base_M,
                             catch_prop,
                             agg_key,years=1983:2025,ages=1:20,survey_l_key,tmb.map=NULL,random=NULL,start.parms=NULL,
                             data=NULL,
                             inf_length=60
-                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE,sel_type="old",l_dist="normal",s_dist="normal",c_dist="normal",plus_surv_sd=FALSE,rho_s_key=NULL){
+                           ,Q_prior_max=35,pg_ext=60,rounding_bit=0.01,survey_sd_map = NULL,catch_prop_map=NULL,gf_ext=TRUE,sel_type="old",l_dist="normal",s_dist="normal",c_dist="normal",plus_surv_sd=FALSE,rho_s_key=NULL,c_qmax_prior=FALSE){
 
     ##orginal data for retros
     orig_data = list()
@@ -110,6 +111,7 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     orig_data$c_dist = c_dist
     orig_data$plus_surv_sd = plus_surv_sd
     orig_data$rho_s_key = rho_s_key
+    orig_data$c_qmax_prior = c_qmax_prior
 
     
     bin_adjust = 0.5
@@ -465,6 +467,11 @@ build_data_and_parameters <- function(weight_array,maturity_array,survey_df,land
     
     ##parms$log_sd_survey = log(0.5)
     parms$log_sd_survey = rep(log(0.5),length(unique(sur_map)))
+
+    tmb.data$c_qmax_prior = c_qmax_prior
+    if(c_qmax_prior == TRUE){
+        parms$log_c_qmax_sd = log(0.1)
+    }
     
 
     if(!is.null(start.parms)){
